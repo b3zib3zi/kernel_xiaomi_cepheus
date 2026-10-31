@@ -1452,6 +1452,20 @@ void susfs_start_sdcard_monitor_fn(void) {
 	}
 }
 
+/*
+ * Deferred extra works, scheduled by KernelSU-Next's setuid hook
+ * (sidex15 legacy-susfs-v2, "defer susfs_run_sus_path_loop() to workqueue").
+ * Re-flagging sus_path_loop entries runs in a kworker instead of the app's
+ * own thread, so the umount path is not slowed down (time side channel).
+ */
+static void susfs_extra_works_fn(struct work_struct *work)
+{
+#ifdef CONFIG_KSU_SUSFS_SUS_PATH
+	susfs_run_sus_path_loop();
+#endif
+}
+DECLARE_WORK(susfs_extra_works, susfs_extra_works_fn);
+
 /* susfs_init */
 void susfs_init(void) {
 #ifdef CONFIG_KSU_SUSFS_SPOOF_UNAME
