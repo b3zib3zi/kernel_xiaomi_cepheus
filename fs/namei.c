@@ -2533,6 +2533,8 @@ static int filename_lookup(int dfd, struct filename *name, unsigned flags,
 	restore_nameidata();
 #ifdef CONFIG_KSU_SUSFS_SUS_PATH
 	if (!retval && path->dentry->d_inode && unlikely(path->dentry->d_inode->i_state & INODE_STATE_SUS_PATH) && likely(current->susfs_task_state & TASK_STRUCT_NON_ROOT_USER_APP_PROC)) {
+		/* the lookup succeeded, so drop the reference it took */
+		path_put(path);
 		putname(name);
 		return -ENOENT;
 	}
@@ -3847,7 +3849,8 @@ struct file *do_filp_open(int dfd, struct filename *pathname,
 #ifdef CONFIG_KSU_SUSFS_OPEN_REDIRECT
 	if (!IS_ERR(filp) && unlikely(filp->f_inode->i_state & INODE_STATE_OPEN_REDIRECT) && current_uid().val < 2000) {
 		fake_pathname = susfs_get_redirected_path(filp->f_inode->i_ino);
-		if (!IS_ERR(fake_pathname)) {
+		/* the lookup may return NULL; never hand that to set_nameidata() */
+		if (!IS_ERR_OR_NULL(fake_pathname)) {
 			restore_nameidata();
 			filp_close(filp, NULL);
 			// no need to do `putname(pathname);` here as it will be done by calling process
