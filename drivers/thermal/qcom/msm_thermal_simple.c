@@ -39,45 +39,63 @@ struct thermal_drv {
 	u32 nr_zones;
 };
 
+/* One cpufreq policy per cluster, so one update per cluster is enough */
 static void update_online_cpu_policy(void)
 {
+	const struct cpumask *clusters[] = {
+		cpu_lp_mask, cpu_perf_mask, cpu_prime_mask
+	};
 	unsigned int cpu;
+	int i;
 
 	get_online_cpus();
-	for_each_possible_cpu(cpu) {
-		if (cpu_online(cpu)) {
-			if (cpumask_intersects(cpumask_of(cpu), cpu_lp_mask))
-				cpufreq_update_policy(cpu);
-			if (cpumask_intersects(cpumask_of(cpu), cpu_perf_mask))
-				cpufreq_update_policy(cpu);
-			if (cpumask_intersects(cpumask_of(cpu), cpu_prime_mask))
-				cpufreq_update_policy(cpu);
-		}
+	for (i = 0; i < ARRAY_SIZE(clusters); i++) {
+		cpu = cpumask_first_and(clusters[i], cpu_online_mask);
+		if (cpu < nr_cpu_ids)
+			cpufreq_update_policy(cpu);
 	}
 	put_online_cpus();
+}
+
+/*
+ * Looking a zone up by name walks the whole thermal zone list under a mutex.
+ * The zones never go away, so resolve each one once and reuse the pointer.
+ */
+static int read_zone_temp(struct thermal_zone_device **tz, const char *name,
+			  int *temp)
+{
+	if (IS_ERR_OR_NULL(*tz)) {
+		*tz = thermal_zone_get_zone_by_name(name);
+		if (IS_ERR_OR_NULL(*tz))
+			return -ENODEV;
+	}
+
+	return thermal_zone_get_temp(*tz, temp);
 }
 
 static void thermal_throttle_worker(struct work_struct *work)
 {
 	struct thermal_drv *t = container_of(to_delayed_work(work), typeof(*t),
 					     throttle_work);
+	static struct thermal_zone_device *cpu_tz[NR_CPUS], *batt_tz;
 	struct thermal_zone *new_zone, *old_zone;
 	int temp = 0, temp_cpus_avg = 0, temp_batt = 0;
 	s64 temp_total = 0, temp_avg = 0;
-	short i = 0;
+	short i;
 
 	/* Store average temperature of all CPU cores */
-	for (i; i < NR_CPUS; i++) {
-		char zone_name[15];
-		sprintf(zone_name, "cpu-1-%i-usr", i);
-		thermal_zone_get_temp(thermal_zone_get_zone_by_name(zone_name), &temp);
+	for (i = 0; i < NR_CPUS; i++) {
+		char zone_name[16];
+
+		snprintf(zone_name, sizeof(zone_name), "cpu-1-%i-usr", i);
+		read_zone_temp(&cpu_tz[i], zone_name, &temp);
 		temp_total += temp;
 	}
 
 	temp_cpus_avg = temp_total / NR_CPUS;
 
 	/* Now let's also get battery temperature */
-	thermal_zone_get_temp(thermal_zone_get_zone_by_name("battery"), &temp_batt);
+	read_zone_temp(&batt_tz, "battery", &temp_batt);
 
 	/* HQ autism coming up */
 	if (temp_batt <= 30000)
@@ -105,7 +123,7 @@ static void thermal_throttle_worker(struct work_struct *work)
 
 	/* Update thermal zone if it changed */
 	if (new_zone != old_zone) {
-		pr_info("temp: %i\n", temp_avg);
+		pr_info("temp: %lld\n", temp_avg);
 		t->curr_zone = new_zone;
 		update_online_cpu_policy();
 	}
@@ -170,7 +188,7 @@ static int msm_thermal_simple_parse_dt(struct platform_device *pdev,
 		return -EINVAL;
 	}
 
-	t->zones = kmalloc(t->nr_zones * sizeof(*t->zones), GFP_KERNEL);
+	t->zones = kcalloc(t->nr_zones, sizeof(*t->zones), GFP_KERNEL);
 	if (!t->zones)
 		return -ENOMEM;
 
@@ -181,6 +199,12 @@ static int msm_thermal_simple_parse_dt(struct platform_device *pdev,
 		ret = OF_READ_U32(child, "reg", reg);
 		if (ret)
 			goto free_zones;
+
+		if (reg >= t->nr_zones) {
+			pr_err("%s: reg %u out of range\n", child->name, reg);
+			ret = -EINVAL;
+			goto free_zones;
+		}
 
 		zone = t->zones + reg;
 
