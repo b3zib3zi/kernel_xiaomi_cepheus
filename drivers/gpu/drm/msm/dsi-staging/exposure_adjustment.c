@@ -42,7 +42,10 @@ static int ea_panel_send_pcc(u32 bl_lvl)
 	u32 ea_coeff;
 	uint64_t val;
 
- 	display = get_main_display();
+	display = get_main_display();
+	if (!display || !display->drm_conn || !display->drm_conn->state)
+		return -ENODEV;
+
 	crtc = display->drm_conn->state->crtc;
 	if (!crtc) {
 		pr_debug("ERROR: Cannot find display panel with CRTC\n");
@@ -88,6 +91,13 @@ static int ea_panel_send_pcc(u32 bl_lvl)
 	if (rc) {
 		pr_debug("DSPP: Cannot set PCC: %d.\n", rc);
 	}
+
+	/*
+	 * sde_cp_crtc_set_property() takes its own reference through
+	 * drm_property_lookup_blob(). Drop the creation reference, otherwise
+	 * every backlight update leaks one blob and its mode object id.
+	 */
+	drm_property_blob_put(blob);
 
 	return rc;
 }

@@ -57,6 +57,13 @@ static void wmi_log_history(struct notifier_block *block, void *data,
 		wmi_log = &wmi_handle->log_info.wmi_event_log_buf_info;
 	else
 		wmi_log = &wmi_handle->log_info.wmi_command_log_buf_info;
+#else
+	/*
+	 * Without WMI event logging there is no history buffer. Bail out
+	 * instead of dereferencing an uninitialized pointer, which would turn
+	 * every WLAN firmware hang into a kernel panic.
+	 */
+	return;
 #endif
 
 	total_len = sizeof(struct wmi_hang_data_fixed_param);
