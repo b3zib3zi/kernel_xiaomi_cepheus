@@ -42,6 +42,13 @@ bool susfs_starts_with(const char *str, const char *prefix) {
     return true;
 }
 
+/*
+ * Strings arrive from userspace in fixed-size arrays and are not guaranteed
+ * to be NUL terminated. Terminate them before any strcmp/kern_path/printk
+ * so a malformed request cannot make the kernel read past the buffer.
+ */
+#define susfs_terminate(arr) ((arr)[sizeof(arr) - 1] = '\0')
+
 #ifndef FUSE_SUPER_MAGIC
 #define FUSE_SUPER_MAGIC 0x65735546
 #endif
@@ -63,6 +70,7 @@ void susfs_add_sus_path(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	info.err = kern_path(info.target_pathname, LOOKUP_FOLLOW, &path);
 	if (info.err) {
@@ -112,6 +120,7 @@ void susfs_add_sus_path_loop(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	if (*info.target_pathname == '\0') {
 		SUSFS_LOGE("target_pathname cannot be empty\n");
@@ -300,7 +309,7 @@ static int susfs_mark_inode_sus_kstat(char *target_pathname, struct st_susfs_sus
 
 out_path_put_path:
 	path_put(&path);
-	return 0;
+	return err;
 }
 
 void susfs_add_sus_kstat(void __user **user_info) {
@@ -311,6 +320,7 @@ void susfs_add_sus_kstat(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	if (*info.target_pathname == '\0') {
 		info.err = -EINVAL;
@@ -403,6 +413,7 @@ void susfs_update_sus_kstat(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	new_entry = kzalloc(sizeof(struct st_susfs_sus_kstat_hlist), GFP_KERNEL);
 	if (!new_entry) {
@@ -425,6 +436,7 @@ void susfs_update_sus_kstat(void __user **user_info) {
 		}
 	}
 	spin_unlock(&susfs_spin_lock_sus_kstat);
+	kfree(new_entry);
 	info.err = -ENOENT;
 	goto out_copy_to_user;
 
@@ -578,6 +590,7 @@ void susfs_add_try_umount(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	if (info.mnt_mode == TRY_UMOUNT_DEFAULT) {
 		info.mnt_mode = 0;
@@ -636,6 +649,8 @@ void susfs_set_uname(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.release);
+	susfs_terminate(info.version);
 
 	spin_lock(&susfs_spin_lock_set_uname);
 	if (!strcmp(info.release, "default")) {
@@ -702,16 +717,20 @@ static DEFINE_SEQLOCK(susfs_fake_cmdline_or_bootconfig_seqlock);
 
 void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 	struct st_susfs_spoof_cmdline_or_bootconfig *info = (struct st_susfs_spoof_cmdline_or_bootconfig *)kzalloc(sizeof(struct st_susfs_spoof_cmdline_or_bootconfig), GFP_KERNEL);
-	
+	int err = -ENOMEM;
+
 	if (!info) {
-		info->err = -ENOMEM;
-		goto out_copy_to_user;
+		/* Report the failure without touching the NULL pointer */
+		if (copy_to_user(&((struct st_susfs_spoof_cmdline_or_bootconfig __user*)*user_info)->err, &err, sizeof(err)))
+			SUSFS_LOGE("copy_to_user() failed\n");
+		return;
 	}
 
 	if (copy_from_user(info, (struct st_susfs_spoof_cmdline_or_bootconfig __user*)*user_info, sizeof(struct st_susfs_spoof_cmdline_or_bootconfig))) {
 		info->err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info->fake_cmdline_or_bootconfig);
 
 	if (*info->fake_cmdline_or_bootconfig == '\0') {
 		info->err = -EINVAL;
@@ -778,6 +797,8 @@ void susfs_add_open_redirect(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
+	susfs_terminate(info.redirected_pathname);
 
         if (*info.target_pathname == '\0') {
                 info.err = -EINVAL;
@@ -864,7 +885,8 @@ void susfs_add_open_redirect(void __user **user_info) {
 			}
 		}
 		spin_unlock(&susfs_spin_lock_open_redirect);
-		synchronize_rcu();
+		/* readers run under susfs_srcu_open_redirect, not plain RCU */
+		synchronize_srcu(&susfs_srcu_open_redirect);
 		if (is_second_dup_found)
 			kfree(tmp_entry_redirected);
 		kfree(tmp_entry_target);
@@ -1059,12 +1081,14 @@ int susfs_open_redirect_spoof_seq_show(struct inode *inode, int *out_mnt_id, uns
 
 int susfs_open_redirect_spoof_show_map_vma(struct inode *inode, unsigned long *out_ino, dev_t *out_dev, char *spoofed_name) {
 	struct st_susfs_open_redirect_hlist *entry = NULL;
-	int srcu_idx = srcu_read_lock(&susfs_srcu_open_redirect);
+	int srcu_idx;
 
 	if (spoofed_name) {
 		SUSFS_LOGE("spoofed_name must be NULL first!\n");
 		return -EINVAL;
 	}
+
+	srcu_idx = srcu_read_lock(&susfs_srcu_open_redirect);
 
 	hash_for_each_possible_rcu(OPEN_REDIRECT_HLIST, entry, node, inode->i_ino) {
 		if (entry->reversed_lookup_only &&
@@ -1102,6 +1126,7 @@ void susfs_add_sus_map(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	info.err = kern_path(info.target_pathname, LOOKUP_FOLLOW, &path);
 	if (info.err) {
@@ -1166,10 +1191,13 @@ void susfs_get_enabled_features(void __user **user_info) {
 	struct st_susfs_enabled_features *info = (struct st_susfs_enabled_features *)kzalloc(sizeof(struct st_susfs_enabled_features), GFP_KERNEL);
 	char *buf_ptr = NULL;
 	size_t copied_size = 0;
+	int err = -ENOMEM;
 
 	if (!info) {
-		info->err = -ENOMEM;
-		goto out_copy_to_user;
+		/* Report the failure without touching the NULL pointer */
+		if (copy_to_user(&((struct st_susfs_enabled_features __user*)*user_info)->err, &err, sizeof(err)))
+			SUSFS_LOGE("copy_to_user() failed\n");
+		return;
 	}
 
 	if (copy_from_user(info, (struct st_susfs_enabled_features __user*)*user_info, sizeof(struct st_susfs_enabled_features))) {
