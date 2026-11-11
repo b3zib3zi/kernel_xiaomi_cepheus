@@ -5525,9 +5525,10 @@ static ssize_t fts_selftest_write(struct file *file, const char __user *buf,
 				  size_t count, loff_t *pos)
 {
 	int retval = 0;
-	char tmp[6];
+	char tmp[6] = { 0 };
 
-	if (copy_from_user(tmp, buf, count)) {
+	/* Only "short", "open" and "i2c" are valid; never overrun tmp[] */
+	if (copy_from_user(tmp, buf, min(count, sizeof(tmp) - 1))) {
 		retval = -EFAULT;
 		goto out;
 	}
