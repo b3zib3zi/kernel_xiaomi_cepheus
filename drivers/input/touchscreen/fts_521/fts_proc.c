@@ -318,8 +318,29 @@ static int fts_open(struct inode *inode, struct file *file)
  * the answer content and format strictly depend on the cmd executed. In general can be: an HEX string or a byte array (e.g in case of 0xF- commands) \n
  * } = end byte \n
  */
+static ssize_t __fts_driver_test_write(struct file *file,
+				       const char __user *buf,
+				       size_t count, loff_t *pos);
+
+/*
+ * The handler below keeps the whole command in an on-stack array sized by
+ * the write length. Bound it here so userspace cannot overflow the kernel
+ * stack with a huge write.
+ */
+#define FTS_DRIVER_TEST_MAX_WRITE	2048
+
 static ssize_t fts_driver_test_write(struct file *file, const char __user *buf,
 				     size_t count, loff_t *pos)
+{
+	if (!count || count > FTS_DRIVER_TEST_MAX_WRITE)
+		return -EINVAL;
+
+	return __fts_driver_test_write(file, buf, count, pos);
+}
+
+static noinline ssize_t __fts_driver_test_write(struct file *file,
+						const char __user *buf,
+						size_t count, loff_t *pos)
 {
 	int numberParam = 0;
 	struct fts_ts_info *info = dev_get_drvdata(getDev());
