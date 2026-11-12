@@ -23,6 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/rcupdate.h>
 #include <linux/workqueue.h>
+#include <linux/close_range.h>
 
 unsigned int sysctl_nr_open __read_mostly = 1024*1024;
 unsigned int sysctl_nr_open_min = BITS_PER_LONG;
@@ -673,6 +674,56 @@ out_unlock:
 	spin_unlock(&files->file_lock);
 	*res = NULL;
 	return -ENOENT;
+}
+
+/**
+ * __close_range() - Close or mark close-on-exec a range of descriptors.
+ *
+ * Minimal backport of the 5.11 close_range() semantics for this 4.14 tree:
+ * flags 0 and CLOSE_RANGE_CLOEXEC are supported. CLOSE_RANGE_UNSHARE is
+ * rejected with -EINVAL (as 5.9/5.10 kernels do for unknown flags), so the
+ * fd table / dup_fd() code used by fork() stays untouched. Errors closing a
+ * single descriptor are ignored, like upstream.
+ */
+int __close_range(unsigned int fd, unsigned int max_fd, unsigned int flags)
+{
+	struct files_struct *files = current->files;
+	struct fdtable *fdt;
+
+	if (flags & ~CLOSE_RANGE_CLOEXEC)
+		return -EINVAL;
+
+	if (fd > max_fd)
+		return -EINVAL;
+
+	if (flags & CLOSE_RANGE_CLOEXEC) {
+		spin_lock(&files->file_lock);
+		fdt = files_fdtable(files);
+		if (fd < fdt->max_fds) {
+			max_fd = min(max_fd, fdt->max_fds - 1);
+			bitmap_set(fdt->close_on_exec, fd, max_fd - fd + 1);
+		}
+		spin_unlock(&files->file_lock);
+		return 0;
+	}
+
+	for (; fd <= max_fd; fd++) {
+		unsigned int max_fds;
+
+		rcu_read_lock();
+		max_fds = files_fdtable(files)->max_fds;
+		rcu_read_unlock();
+		if (fd >= max_fds)
+			break;
+
+		__close_fd(files, fd);
+		cond_resched();
+
+		if (fd == UINT_MAX)
+			break;
+	}
+
+	return 0;
 }
 
 void do_close_on_exec(struct files_struct *files)
