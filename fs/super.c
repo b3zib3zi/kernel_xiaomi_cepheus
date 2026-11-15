@@ -37,6 +37,9 @@
 #include <linux/lockdep.h>
 #include <linux/user_namespace.h>
 #include "internal.h"
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif // #ifdef CONFIG_KSU_SUSFS
 
 
 static LIST_HEAD(super_blocks);
@@ -969,18 +972,43 @@ static DEFINE_SPINLOCK(unnamed_dev_lock);/* protects the above */
  */
 static int unnamed_dev_start = 1;
 
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+extern bool susfs_is_current_ksu_domain(void);
+extern struct static_key_true susfs_is_sdcard_android_data_not_decrypted;
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+
 int get_anon_bdev(dev_t *p)
 {
 	int dev;
 	int error;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	/*
+	 * Anonymous devices created by the ksu domain before /sdcard/Android
+	 * is decrypted get a minor from a separate, high range, so the minors
+	 * handed out to everything else stay gap-free. 4.14 port of the
+	 * ida_alloc_range() based hook in newer kernels; unnamed_dev_start is
+	 * deliberately left alone for these.
+	 */
+	bool is_ksu_dev = static_branch_unlikely(&susfs_is_sdcard_android_data_not_decrypted) &&
+			  susfs_is_current_ksu_domain();
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 
  retry:
 	if (ida_pre_get(&unnamed_dev_ida, GFP_ATOMIC) == 0)
 		return -ENOMEM;
 	spin_lock(&unnamed_dev_lock);
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+	if (is_ksu_dev) {
+		error = ida_get_new_above(&unnamed_dev_ida, DEFAULT_KSU_MNT_MINOR_DEV, &dev);
+		goto susfs_alloc_done;
+	}
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 	error = ida_get_new_above(&unnamed_dev_ida, unnamed_dev_start, &dev);
 	if (!error)
 		unnamed_dev_start = dev + 1;
+#ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
+susfs_alloc_done:
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_MOUNT
 	spin_unlock(&unnamed_dev_lock);
 	if (error == -EAGAIN)
 		/* We raced and lost with another CPU. */
