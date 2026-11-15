@@ -20,6 +20,14 @@
 
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
+#ifdef CONFIG_KSU_SUSFS
+#include <linux/susfs_def.h>
+#endif
+
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
+extern void susfs_sus_kstat_spoof_generic_fillattr(struct inode *inode, struct kstat *stat, u32 result_mask);
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 /**
  * generic_fillattr - Fill in the basic attributes from the inode struct
@@ -70,17 +78,49 @@ int vfs_getattr_nosec(const struct path *path, struct kstat *stat,
 		      u32 request_mask, unsigned int query_flags)
 {
 	struct inode *inode = d_backing_inode(path->dentry);
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	/*
+	 * 4.14 port: newer kernels park STATX_SUS_KSTAT{,_FUSE} in
+	 * stat->result_mask because they also have to protect stat->mnt_id.
+	 * struct kstat has no mnt_id here, so keep the marker in a local and
+	 * never let the private bits reach userspace through statx().
+	 */
+	u32 sus_kstat_mask = 0;
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 
 	memset(stat, 0, sizeof(*stat));
 	stat->result_mask |= STATX_BASIC_STATS;
 	request_mask &= STATX_ALL;
 	query_flags &= KSTAT_QUERY_FLAGS;
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+	if (susfs_is_current_app_uid()) {
+		bool is_fuse = false;
+
+		if (susfs_is_inode_sus_kstat(inode, &is_fuse))
+			sus_kstat_mask = is_fuse ? STATX_SUS_KSTAT_FUSE : STATX_SUS_KSTAT;
+	}
+
+	if (inode->i_op->getattr) {
+		int err = inode->i_op->getattr(path, stat, request_mask,
+					       query_flags);
+
+		if (!err && sus_kstat_mask)
+			susfs_sus_kstat_spoof_generic_fillattr(inode, stat, sus_kstat_mask);
+		return err;
+	}
+
+	generic_fillattr(inode, stat);
+	if (sus_kstat_mask)
+		susfs_sus_kstat_spoof_generic_fillattr(inode, stat, sus_kstat_mask);
+	return 0;
+#else
 	if (inode->i_op->getattr)
 		return inode->i_op->getattr(path, stat, request_mask,
 					    query_flags);
 
 	generic_fillattr(inode, stat);
 	return 0;
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 }
 EXPORT_SYMBOL(vfs_getattr_nosec);
 

@@ -72,6 +72,12 @@ static void show_mark_fhandle(struct seq_file *m, struct inode *inode)
 
 #ifdef CONFIG_INOTIFY_USER
 
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+#include <linux/susfs_def.h>
+extern bool susfs_is_inode_sus_kstat(struct inode *inode, bool *out_is_fuse);
+extern void susfs_sus_kstat_spoof_inotify_fdinfo(unsigned long *out_target_ino, dev_t *out_target_dev);
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+
 static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
 {
 	struct inotify_inode_mark *inode_mark;
@@ -83,6 +89,30 @@ static void inotify_fdinfo(struct seq_file *m, struct fsnotify_mark *mark)
 	inode_mark = container_of(mark, struct inotify_inode_mark, fsn_mark);
 	inode = igrab(mark->connector->inode);
 	if (inode) {
+#ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
+		/*
+		 * 4.14 port: only the sus_kstat part is taken. The sus_mount
+		 * part of the newer hook tests the mount of the inotify fd
+		 * itself (anon inode), which is never a ksu mount.
+		 */
+		if (susfs_is_current_app_uid()) {
+			bool is_fuse = false;
+
+			if (susfs_is_inode_sus_kstat(inode, &is_fuse)) {
+				unsigned long ino = inode->i_ino;
+				dev_t dev = inode->i_sb->s_dev;
+
+				susfs_sus_kstat_spoof_inotify_fdinfo(&ino, &dev);
+				seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
+					   inode_mark->wd, ino, dev,
+					   inotify_mark_user_mask(mark));
+				show_mark_fhandle(m, inode);
+				seq_putc(m, '\n');
+				iput(inode);
+				return;
+			}
+		}
+#endif // #ifdef CONFIG_KSU_SUSFS_SUS_KSTAT
 		seq_printf(m, "inotify wd:%x ino:%lx sdev:%x mask:%x ignored_mask:0 ",
 			   inode_mark->wd, inode->i_ino, inode->i_sb->s_dev,
 			   inotify_mark_user_mask(mark));
