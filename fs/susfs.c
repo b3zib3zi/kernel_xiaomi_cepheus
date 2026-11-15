@@ -183,6 +183,13 @@ void susfs_spoof_avd_allowed_rcu(u32 s_type, u32 t_type, u32 c_type, u32 *avd_al
 #endif /* SUSFS_PORT_SELINUX_HIDE */
 
 /*
+ * The fixed-size strings in the structs copied from userspace are not
+ * guaranteed to be NUL terminated. Terminate them before any
+ * strcmp/kern_path/printk gets to see them.
+ */
+#define susfs_terminate(arr) ((arr)[sizeof(arr) - 1] = '\0')
+
+/*
  * Switches the selinux domain of the current process to the KernelSU one, so
  * that the data paths of the apps can be accessed despite of the selinux
  * restrictions.
@@ -248,6 +255,7 @@ void susfs_add_sus_path(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	info.err = kern_path(info.target_pathname, LOOKUP_FOLLOW, &path);
 	if (info.err) {
@@ -298,6 +306,7 @@ void susfs_add_sus_path_loop(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	if (*info.target_pathname == '\0') {
 		SUSFS_LOGE("target_pathname cannot be empty\n");
@@ -549,6 +558,7 @@ void susfs_add_sus_kstat(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	if (*info.target_pathname == '\0') {
 		info.err = -EINVAL;
@@ -664,6 +674,7 @@ void susfs_update_sus_kstat(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	new_entry = kzalloc(sizeof(struct st_susfs_sus_kstat_hlist), GFP_KERNEL);
 	if (!new_entry) {
@@ -911,6 +922,8 @@ void susfs_set_uname(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.release);
+	susfs_terminate(info.version);
 
 	if (*info.release == '\0' || *info.version == '\0') {
 		info.err = -EFAULT;
@@ -1004,6 +1017,7 @@ void susfs_set_cmdline_or_bootconfig(void __user **user_info) {
 		info->err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info->fake_cmdline_or_bootconfig);
 
 	if (*info->fake_cmdline_or_bootconfig == '\0') {
 		info->err = -EINVAL;
@@ -1076,6 +1090,8 @@ void susfs_add_open_redirect(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
+	susfs_terminate(info.redirected_pathname);
 
         if (*info.target_pathname == '\0') {
                 info.err = -EINVAL;
@@ -1358,6 +1374,7 @@ void susfs_add_sus_map(void __user **user_info) {
 		info.err = -EFAULT;
 		goto out_copy_to_user;
 	}
+	susfs_terminate(info.target_pathname);
 
 	info.err = kern_path(info.target_pathname, LOOKUP_FOLLOW, &path);
 	if (info.err) {
