@@ -1,99 +1,95 @@
 #!/bin/bash
-rm .version
-# Bash Color
-green='\033[01;32m'
-red='\033[01;31m'
-blink_red='\033[05;31m'
-restore='\033[0m'
+# SPDX-License-Identifier: GPL-2.0
+#
+# REVENIR kernel build script - Xiaomi Mi 9 (cepheus)
+#
+# Usage: ./build.sh [clean]
+#
+# Needs clang/lld 19 plus aarch64 and arm32 GNU binutils, e.g. on Ubuntu 24.04:
+#   apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
+#       binutils-aarch64-linux-gnu gcc-arm-linux-gnueabi
+#
+# The result is $ZIP_DIR/REVENIR-<ver>-cepheus-A15-KSUN-<ksun>-SUSFS-<susfs>-<date>.zip
 
-clear
+set -e
 
-# Resources
-export CLANG_PATH=~/jose/pixelos/prebuilts/clang/host/linux-x86/clang-playground/bin
-export PATH=${CLANG_PATH}:${PATH}
-export CROSS_COMPILE=${CLANG_PATH}/aarch64-linux-gnu-
-export CROSS_COMPILE_ARM32=${CLANG_PATH}/arm-linux-gnueabi-
+# Version of this kernel and of the parts it carries
+REVENIR_VER="${REVENIR_VER:-1.0}"
+ANDROID_VER="A15"
+KSUN_VER="3.4.2"
+SUSFS_VER="2.1.0"
+
+# KernelSU-Next derives its version from the commit count of its checkout
+# (465490a2 => 33314). The SUSFS glue patch below counts as one more commit,
+# so pin the number and the tag the kernel reports. KSUN_VER above names the
+# manager release users have to install (UAPI 5), not this tag.
+KSU_VERSION_OVERRIDE="${KSU_VERSION_OVERRIDE:-33315}"
+KSU_VERSION_TAG_OVERRIDE="${KSU_VERSION_TAG_OVERRIDE:-v3.4.0-legacy-susfs}"
+KSU_COMMIT="465490a26667ba4cf00b3be975a7e28e53978829"
+KSU_PATCH="KernelSU-Next-susfs-2.1.0-uapi5.patch"
+
 DEFCONFIG="cepheus_defconfig"
+KERNEL_DIR="$(cd "$(dirname "$0")" && pwd)"
+OUT_DIR="${OUT_DIR:-$KERNEL_DIR/out}"
+# AnyKernel3 template (anykernel.sh, tools/, META-INF/), not part of this repo
+ANYKERNEL_DIR="${ANYKERNEL_DIR:-$HOME/anykernel}"
+ZIP_DIR="${ZIP_DIR:-$KERNEL_DIR/..}"
+LLVM_BIN="${LLVM_BIN:-/usr/lib/llvm-19/bin}"
 
-# Kernel Details
-VER=""
+BUILD_DATE="${BUILD_DATE:-$(date +%Y%m%d)}"
+ZIP_NAME="REVENIR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-SUSFS-${SUSFS_VER}-${BUILD_DATE}.zip"
 
-# Paths
-KERNEL_DIR=`pwd`
-REPACK_DIR=~/anykernel
-ZIP_MOVE=~/TREES
+export PATH="$LLVM_BIN:$PATH"
 
-# Functions
-function clean_all {
-		rm -rf $REPACK_DIR/Image*
-		cd $KERNEL_DIR
-		echo
-		make clean && make mrproper
-}
+MAKE_ARGS=(
+	-j"$(nproc)"
+	O="$OUT_DIR"
+	ARCH=arm64
+	SUBARCH=arm64
+	LLVM=1
+	LLVM_IAS=1
+	CROSS_COMPILE=aarch64-linux-gnu-
+	CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+	KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-b3zi}"
+	KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-revenir}"
+	KSU_VERSION_OVERRIDE="$KSU_VERSION_OVERRIDE"
+	KSU_VERSION_TAG_OVERRIDE="$KSU_VERSION_TAG_OVERRIDE"
+)
 
-function make_kernel {
-		echo
-		make LLVM=1 LLVM_IAS=1 $DEFCONFIG
-		make LLVM=1 LLVM_IAS=1 -j$(grep -c ^processor /proc/cpuinfo)
+cd "$KERNEL_DIR"
 
-}
+# KernelSU-Next: official legacy commit plus the SUSFS glue patch
+if [ ! -f KernelSU-Next/kernel/Kbuild ]; then
+	echo "-- fetching KernelSU-Next $KSU_COMMIT"
+	rm -rf KernelSU-Next
+	git clone https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
+	git -C KernelSU-Next checkout -q "$KSU_COMMIT"
+fi
+if ! grep -q "config KSU_SUSFS" KernelSU-Next/kernel/Kconfig; then
+	echo "-- applying $KSU_PATCH"
+	git -C KernelSU-Next apply -p1 "$KERNEL_DIR/$KSU_PATCH"
+fi
 
+if [ "$1" = "clean" ]; then
+	rm -rf "$OUT_DIR"
+fi
 
-function make_boot {
-		cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
-}
+START=$(date +%s)
 
+make "${MAKE_ARGS[@]}" "$DEFCONFIG"
+make "${MAKE_ARGS[@]}"
 
-function make_zip {
-		cd $REPACK_DIR
-		zip -r9 `echo $ZIP_NAME`.zip *
-		mv  `echo $ZIP_NAME`*.zip $ZIP_MOVE
-		cd $KERNEL_DIR
-}
+IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
+[ -f "$IMAGE" ] || { echo "build failed: $IMAGE missing"; exit 1; }
 
+if [ -f "$ANYKERNEL_DIR/anykernel.sh" ]; then
+	cp "$IMAGE" "$ANYKERNEL_DIR/"
+	rm -f "$ZIP_DIR/$ZIP_NAME"
+	(cd "$ANYKERNEL_DIR" && zip -r9 "$ZIP_DIR/$ZIP_NAME" . -x '.git/*' '*.zip')
+	echo "-- $ZIP_DIR/$ZIP_NAME"
+else
+	echo "-- no AnyKernel3 template in $ANYKERNEL_DIR, image only: $IMAGE"
+fi
 
-DATE_START=$(date +"%s")
-
-
-echo -e "${green}"
-echo "Making Kernel:"
-echo -e "${restore}"
-
-
-# Vars
-BASE_AK_VER="REVUELTO-KSU-MI9-"
-DATE=`date +"%Y%m%d-%H%M"`
-AK_VER="$BASE_AK_VER$VER"
-ZIP_NAME="$AK_VER"-"$DATE"
-#export LOCALVERSION=~`echo $AK_VER`
-#export LOCALVERSION=~`echo $AK_VER`
-export ARCH=arm64
-export SUBARCH=arm64
-export KBUILD_BUILD_USER=balgxmr
-export KBUILD_BUILD_HOST=balgxmr
-
-echo
-echo Starting cleaning...
-echo
-clean_all
-echo
-echo All cleaned.
-echo
-echo Building kernel...
-echo
-
-make_kernel
-make_boot
-make_zip
-
-DATE_END=$(date +"%s")
-DIFF=$(($DATE_END - $DATE_START))
-
-echo
-find $ZIP_MOVE -type f -mmin -5 -mmin +0
-
-echo
-echo -e "${green}"
-echo "### build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s)!"
-echo -e "${restore}"
-echo
+END=$(date +%s)
+echo "### build completed in $(((END - START) / 60)) min $(((END - START) % 60)) s"
