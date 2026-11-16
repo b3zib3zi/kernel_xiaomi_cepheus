@@ -3408,6 +3408,13 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 		dput(dentry);
 		dentry = NULL;
 		found_sus_path = true;
+		/*
+		 * Never let O_CREAT create the decoy name in place of the
+		 * hidden path. Fail the way a create without write permission
+		 * on the directory would, as __lookup_hash() does for FUSE.
+		 */
+		if (open_flag & O_CREAT)
+			return -EACCES;
 	}
 #endif
 	for (;;) {
