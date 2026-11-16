@@ -20,10 +20,11 @@ KSUN_VER="3.4.2"
 SUSFS_VER="2.1.0"
 
 # KernelSU-Next derives its version from the commit count of its checkout
-# (465490a2 => 33314). The patch below carries it to 33322, so pin both
-# the number and the tag the manager shows.
-KSU_VERSION_OVERRIDE="${KSU_VERSION_OVERRIDE:-33322}"
-KSU_VERSION_TAG_OVERRIDE="${KSU_VERSION_TAG_OVERRIDE:-v${KSUN_VER}-legacy-susfs}"
+# (465490a2 => 33314). The SUSFS glue patch below counts as one more commit,
+# so pin the number and the tag the kernel reports. KSUN_VER above names the
+# manager release users have to install (UAPI 5), not this tag.
+KSU_VERSION_OVERRIDE="${KSU_VERSION_OVERRIDE:-33315}"
+KSU_VERSION_TAG_OVERRIDE="${KSU_VERSION_TAG_OVERRIDE:-v3.4.0-legacy-susfs}"
 KSU_COMMIT="465490a26667ba4cf00b3be975a7e28e53978829"
 KSU_PATCH="KernelSU-Next-susfs-2.1.0-uapi5.patch"
 
