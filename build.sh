@@ -1,99 +1,82 @@
 #!/bin/bash
-rm .version
-# Bash Color
-green='\033[01;32m'
-red='\033[01;31m'
-blink_red='\033[05;31m'
-restore='\033[0m'
+# SPDX-License-Identifier: GPL-2.0
+#
+# REVENIR kernel build script - Xiaomi Mi 9 (cepheus)
+#
+# Usage: ./build.sh [clean]
+#
+# Needs clang/lld 19 plus aarch64 and arm32 GNU binutils, e.g. on Ubuntu 24.04:
+#   apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
+#       binutils-aarch64-linux-gnu gcc-arm-linux-gnueabi
+#
+# The result is $ZIP_DIR/REVENIR-<ver>-cepheus-A16-KSUN-<ksun>-<date>.zip
 
-clear
+set -e
 
-# Resources
-export CLANG_PATH=~/jose/pixelos/prebuilts/clang/host/linux-x86/clang-playground/bin
-export PATH=${CLANG_PATH}:${PATH}
-export CROSS_COMPILE=${CLANG_PATH}/aarch64-linux-gnu-
-export CROSS_COMPILE_ARM32=${CLANG_PATH}/arm-linux-gnueabi-
+# Version of this kernel and of the parts it carries
+REVENIR_VER="${REVENIR_VER:-1.0}"
+ANDROID_VER="A16"
+KSUN_VER="3.4.0"
+
+# KernelSU-Next: official legacy branch, unpatched. Version (33314) and tag
+# (v3.4.0-legacy) come from the git history of the checkout.
+KSU_COMMIT="465490a26667ba4cf00b3be975a7e28e53978829"
+
 DEFCONFIG="cepheus_defconfig"
+KERNEL_DIR="$(cd "$(dirname "$0")" && pwd)"
+OUT_DIR="${OUT_DIR:-$KERNEL_DIR/out}"
+# AnyKernel3 template (anykernel.sh, tools/, META-INF/), not part of this repo
+ANYKERNEL_DIR="${ANYKERNEL_DIR:-$HOME/anykernel}"
+ZIP_DIR="${ZIP_DIR:-$KERNEL_DIR/..}"
+LLVM_BIN="${LLVM_BIN:-/usr/lib/llvm-19/bin}"
 
-# Kernel Details
-VER=""
+BUILD_DATE="${BUILD_DATE:-$(date +%Y%m%d)}"
+ZIP_NAME="REVENIR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-${BUILD_DATE}.zip"
 
-# Paths
-KERNEL_DIR=`pwd`
-REPACK_DIR=~/anykernel
-ZIP_MOVE=~/TREES
+export PATH="$LLVM_BIN:$PATH"
 
-# Functions
-function clean_all {
-		rm -rf $REPACK_DIR/Image*
-		cd $KERNEL_DIR
-		echo
-		make clean && make mrproper
-}
+MAKE_ARGS=(
+	-j"$(nproc)"
+	O="$OUT_DIR"
+	ARCH=arm64
+	SUBARCH=arm64
+	LLVM=1
+	LLVM_IAS=1
+	CROSS_COMPILE=aarch64-linux-gnu-
+	CROSS_COMPILE_ARM32=arm-linux-gnueabi-
+	KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-b3zi}"
+	KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-revenir}"
+)
 
-function make_kernel {
-		echo
-		make LLVM=1 LLVM_IAS=1 $DEFCONFIG
-		make LLVM=1 LLVM_IAS=1 -j$(grep -c ^processor /proc/cpuinfo)
+cd "$KERNEL_DIR"
 
-}
+# KernelSU-Next: official legacy commit
+if [ ! -f KernelSU-Next/kernel/Kbuild ]; then
+	echo "-- fetching KernelSU-Next $KSU_COMMIT"
+	rm -rf KernelSU-Next
+	git clone https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
+	git -C KernelSU-Next checkout -q "$KSU_COMMIT"
+fi
+if [ "$1" = "clean" ]; then
+	rm -rf "$OUT_DIR"
+fi
 
+START=$(date +%s)
 
-function make_boot {
-		cp out/arch/arm64/boot/Image.gz-dtb $REPACK_DIR
-}
+make "${MAKE_ARGS[@]}" "$DEFCONFIG"
+make "${MAKE_ARGS[@]}"
 
+IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
+[ -f "$IMAGE" ] || { echo "build failed: $IMAGE missing"; exit 1; }
 
-function make_zip {
-		cd $REPACK_DIR
-		zip -r9 `echo $ZIP_NAME`.zip *
-		mv  `echo $ZIP_NAME`*.zip $ZIP_MOVE
-		cd $KERNEL_DIR
-}
+if [ -f "$ANYKERNEL_DIR/anykernel.sh" ]; then
+	cp "$IMAGE" "$ANYKERNEL_DIR/"
+	rm -f "$ZIP_DIR/$ZIP_NAME"
+	(cd "$ANYKERNEL_DIR" && zip -r9 "$ZIP_DIR/$ZIP_NAME" . -x '.git/*' '*.zip')
+	echo "-- $ZIP_DIR/$ZIP_NAME"
+else
+	echo "-- no AnyKernel3 template in $ANYKERNEL_DIR, image only: $IMAGE"
+fi
 
-
-DATE_START=$(date +"%s")
-
-
-echo -e "${green}"
-echo "Making Kernel:"
-echo -e "${restore}"
-
-
-# Vars
-BASE_AK_VER="REVUELTO-KSU-MI9-"
-DATE=`date +"%Y%m%d-%H%M"`
-AK_VER="$BASE_AK_VER$VER"
-ZIP_NAME="$AK_VER"-"$DATE"
-#export LOCALVERSION=~`echo $AK_VER`
-#export LOCALVERSION=~`echo $AK_VER`
-export ARCH=arm64
-export SUBARCH=arm64
-export KBUILD_BUILD_USER=balgxmr
-export KBUILD_BUILD_HOST=balgxmr
-
-echo
-echo Starting cleaning...
-echo
-clean_all
-echo
-echo All cleaned.
-echo
-echo Building kernel...
-echo
-
-make_kernel
-make_boot
-make_zip
-
-DATE_END=$(date +"%s")
-DIFF=$(($DATE_END - $DATE_START))
-
-echo
-find $ZIP_MOVE -type f -mmin -5 -mmin +0
-
-echo
-echo -e "${green}"
-echo "### build completed in $(($DIFF / 60)) minute(s) and $(($DIFF % 60)) second(s)!"
-echo -e "${restore}"
-echo
+END=$(date +%s)
+echo "### build completed in $(((END - START) / 60)) min $(((END - START) % 60)) s"
