@@ -26,7 +26,8 @@
 extern bool susfs_is_current_ksu_domain(void);
 
 #ifdef CONFIG_KSU_SUSFS_ENABLE_LOG
-bool susfs_is_log_enabled __read_mostly = true;
+/* off until userspace asks for it (CMD_SUSFS_ENABLE_LOG), keeps dmesg quiet in daily use */
+bool susfs_is_log_enabled __read_mostly = false;
 #define SUSFS_LOGI(fmt, ...) if (READ_ONCE(susfs_is_log_enabled)) pr_info("susfs:[%u][%d][%s] " fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #define SUSFS_LOGE(fmt, ...) if (READ_ONCE(susfs_is_log_enabled)) pr_err("susfs:[%u][%d][%s]" fmt, current_uid().val, current->pid, __func__, ##__VA_ARGS__)
 #else
