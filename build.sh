@@ -9,7 +9,7 @@
 #   apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
 #       binutils-aarch64-linux-gnu gcc-arm-linux-gnueabi
 #
-# The result is $ZIP_DIR/REVENIR-<ver>-cepheus-A16-KSUN-<ksun>-SUSFS-<susfs>.zip
+# The result is $ZIP_DIR/REVENIR-<ver>-cepheus-A16-KSUN-<ksun>-SUSFS-<susfs>-<date>.zip
 
 set -e
 
@@ -35,7 +35,8 @@ ANYKERNEL_DIR="${ANYKERNEL_DIR:-$HOME/anykernel}"
 ZIP_DIR="${ZIP_DIR:-$KERNEL_DIR/..}"
 LLVM_BIN="${LLVM_BIN:-/usr/lib/llvm-19/bin}"
 
-ZIP_NAME="REVENIR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-SUSFS-${SUSFS_VER}.zip"
+BUILD_DATE="${BUILD_DATE:-$(date +%Y%m%d)}"
+ZIP_NAME="REVENIR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-SUSFS-${SUSFS_VER}-${BUILD_DATE}.zip"
 
 export PATH="$LLVM_BIN:$PATH"
 
