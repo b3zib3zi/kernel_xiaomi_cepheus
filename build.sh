@@ -16,7 +16,9 @@ set -e
 # Version of this kernel and of the parts it carries
 REVENIR_VER="${REVENIR_VER:-1.0}"
 ANDROID_VER="A16"
-KSUN_VER="3.4.0"
+# Names the KernelSU-Next manager release users have to install (UAPI 5).
+# The kernel itself reports the tag of its checkout, v3.4.0-legacy.
+KSUN_VER="3.4.2"
 
 # KernelSU-Next: official legacy branch, unpatched. Version (33314) and tag
 # (v3.4.0-legacy) come from the git history of the checkout.
