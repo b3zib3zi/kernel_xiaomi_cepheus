@@ -45,12 +45,66 @@ The zips contain **no dtbo**, your current dtbo stays untouched.
 Older managers will not work correctly: the SUSFS builds report KernelSU UAPI 5,
 which manager v3.4.0 does not support.
 
+## Display refresh rate (optional)
+
+REVENIR runs the display at the stock **60 Hz** by default. You can raise the
+refresh rate when you flash the kernel. Nothing is changed in the dtbo, and
+going back to 60 Hz only takes another flash.
+
+| Refresh rate | Display link clock |
+|---|---|
+| 60 Hz (default) | 1.103 GHz |
+| 66 Hz | 1.21 GHz |
+| 69 Hz | 1.265 GHz |
+| 72 Hz | 1.32 GHz |
+| 75 Hz | 1.375 GHz |
+| 81 Hz | 1.485 GHz |
+| 84 Hz | 1.54 GHz |
+| 90 Hz | 1.65 GHz |
+
+**Option 1: rename the zip.** Add the rate to the file name before flashing,
+for example:
+
+```
+REVENIR-1.0-cepheus-A16-KSUN-3.4.2-20261116-69hz.zip
+```
+
+Allowed: `66hz`, `69hz`, `72hz`, `75hz`, `81hz`, `84hz`, `90hz` (or `69fps`
+and so on). Use a lowercase `hz`: `69Hz` is not recognised.
+
+**Option 2: a file on your phone.** Create `/sdcard/framerate_override`
+containing only the number, e.g. `69`, then flash the zip with its normal
+name. The setting is picked up again on every future kernel update.
+
+The recovery log confirms the setting, e.g. `Setting 69 Hz refresh rate`.
+
+**Check what is active:**
+
+```sh
+cat /sys/module/msm_drm/parameters/framerate_override
+```
+
+`0` means 60 Hz, `1` to `7` are the steps from 66 to 90 Hz. crDroid can also
+show the current rate (Developer options → Show refresh rate).
+
+**Back to 60 Hz:** flash the zip without a rate in its name and delete
+`/sdcard/framerate_override` if you created it.
+
+> ⚠️ This is display overclocking. Not every panel handles every step.
+> Start with 66 or 69 Hz. Check for skipped frames with the frame skipping
+> test on [testufo.com](https://www.testufo.com/frameskipping) (take a photo
+> with about 1/10 s exposure; the boxes must be lit without gaps).
+> Higher rates use a bit more battery. If the screen flickers, shows lines
+> or stays black, reflash the zip without a rate in its name.
+
 ## Features
 
 ### Base
 - OpenELA LTS **4.14.357** merged into REVUELTO
 - Built with **clang 19** and ThinLTO
 - **GPU**: frequency/voltage table from InfiniR, up to **810 MHz**
+- **Display**: optional refresh rate from 66 to 90 Hz
+  (see [Display refresh rate](#display-refresh-rate-optional))
 
 ### Root
 - **KernelSU-Next legacy**, built into the kernel
@@ -112,6 +166,8 @@ adapted by hand.
   hiding of SUSFS (KernelSU-Next's own selinux_hide is used instead) and the
   kallsyms filter (kallsyms is off anyway). open_redirect does not work on
   FUSE paths such as `/sdcard`.
+- **Display overclocking is panel-dependent.** Higher refresh rates may skip
+  frames or flicker on some phones; 60 Hz stays the default.
 - **No debugfs.** Apps that read kernel wakelocks from debugfs (e.g.
   BetterBatteryStats) cannot show them. App wakelocks are still visible.
 - **Spectre branch-predictor hardening is off** in favour of performance.
