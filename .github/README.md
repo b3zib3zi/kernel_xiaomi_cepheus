@@ -51,6 +51,11 @@ REVENIR runs the display at the stock **60 Hz** by default. You can raise the
 refresh rate when you flash the kernel. Nothing is changed in the dtbo, and
 going back to 60 Hz only takes another flash.
 
+> **1.0.1 test builds:** without a rate in the zip name, the display offers
+> two modes, **60 Hz and 50 Hz**. Android switches to 50 Hz on its own while
+> nothing on screen moves, and back to 60 Hz for any movement. With a rate in
+> the zip name, the display runs at that fixed rate, as in 1.0.
+
 | Refresh rate | Display link clock |
 |---|---|
 | 60 Hz (default) | 1.103 GHz |
