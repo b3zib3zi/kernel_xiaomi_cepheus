@@ -12,6 +12,11 @@ The name is a blend of the two kernels this work grew out of:
 > ⚠️ These are TEST builds. Flash at your own risk and keep a backup of your
 > current boot image.
 
+> 🧪 **This is the `revenir-a16-dynhz-test` test branch (REVENIR 1.0.1).** It adds the
+> automatic 60/50 Hz display mode described below. It is not a release yet;
+> for the released builds see the
+> [releases page](https://github.com/b3zib3zi/kernel_xiaomi_cepheus/releases).
+
 ---
 
 ## Which build do I need?
@@ -45,62 +50,114 @@ The zips contain **no dtbo**, your current dtbo stays untouched.
 Older managers will not work correctly: the SUSFS builds report KernelSU UAPI 5,
 which manager v3.4.0 does not support.
 
-## Display refresh rate (optional)
+## Display refresh rate
 
-REVENIR runs the display at the stock **60 Hz** by default. You can raise the
-refresh rate when you flash the kernel. Nothing is changed in the dtbo, and
-going back to 60 Hz only takes another flash.
+### Default: 60 Hz with automatic 50 Hz
 
-> **1.0.1 test builds:** without a rate in the zip name, the display offers
-> two modes, **60 Hz and 50 Hz**. Android switches to 50 Hz on its own while
-> nothing on screen moves, and back to 60 Hz for any movement. With a rate in
-> the zip name, the display runs at that fixed rate, as in 1.0.
+Flash the zip **without** a rate in its name and the display offers two modes:
 
-| Refresh rate | Display link clock |
+| Mode | When Android uses it |
 |---|---|
-| 60 Hz (default) | 1.103 GHz |
-| 66 Hz | 1.21 GHz |
-| 69 Hz | 1.265 GHz |
-| 72 Hz | 1.32 GHz |
-| 75 Hz | 1.375 GHz |
-| 81 Hz | 1.485 GHz |
-| 84 Hz | 1.54 GHz |
-| 90 Hz | 1.65 GHz |
+| **60 Hz** | Stock rate. Used whenever something moves: scrolling, animations, videos, games |
+| **50 Hz** | Used automatically while nothing on screen changes (reading, idle screen). Saves a little power |
 
-**Option 1: rename the zip.** Add the rate to the file name before flashing,
-for example:
+Android switches between the two on its own. In testing on crDroid 11 the
+switch was seamless, without flicker, also at low brightness. The display link
+clock is scaled with the rate (60 Hz: 1.103 GHz, 50 Hz: about 0.92 GHz).
+
+### Fixed rate: choose it when flashing
+
+For a higher rate, add it to the zip name before flashing. The display then
+runs at exactly that rate, as in REVENIR 1.0:
 
 ```
-REVENIR-1.0-cepheus-A16-KSUN-3.4.2-20261116-69hz.zip
+REVENIR-1.0.1-cepheus-A16-KSUN-3.4.2-20261121-69hz.zip
 ```
 
 Allowed: `66hz`, `69hz`, `72hz`, `75hz`, `81hz`, `84hz`, `90hz` (or `69fps`
 and so on). Use a lowercase `hz`: `69Hz` is not recognised.
 
-**Option 2: a file on your phone.** Create `/sdcard/framerate_override`
-containing only the number, e.g. `69`, then flash the zip with its normal
-name. The setting is picked up again on every future kernel update.
+Alternatively create `/sdcard/framerate_override` containing only the number,
+e.g. `69`, and flash the zip with its normal name. The setting is picked up
+again on every future kernel update.
 
-The recovery log confirms the setting, e.g. `Setting 69 Hz refresh rate`.
+| Rate | Time per frame | Display link clock | Note |
+|---|---|---|---|
+| 50 Hz | 20.0 ms | ~0.92 GHz | only in the default build, chosen automatically |
+| 60 Hz | 16.7 ms | 1.103 GHz | stock |
+| 66 Hz | 15.2 ms | 1.21 GHz | |
+| 69 Hz | 14.5 ms | 1.265 GHz | good first step |
+| 72 Hz | 13.9 ms | 1.32 GHz | matches 24 fps films |
+| 75 Hz | 13.3 ms | 1.375 GHz | matches 25 fps video |
+| 81 Hz | 12.3 ms | 1.485 GHz | |
+| 84 Hz | 11.9 ms | 1.54 GHz | |
+| 90 Hz | 11.1 ms | 1.65 GHz | matches 30 fps content; may skip frames on some panels |
+
+> ⚠️ Rates above 60 Hz are display overclocking. Not every panel handles every
+> step. Start with 66 or 69 Hz and check for skipped frames with the
+> [frame skipping test](https://www.testufo.com/frameskipping) (don't touch the
+> screen, take a photo with about 1/10 s exposure; the boxes must be lit
+> without gaps). Higher rates use a bit more battery. If the screen flickers,
+> shows lines or stays black, reflash the zip without a rate in its name.
+
+### Which rate fits which content?
+
+Video looks smoothest when the refresh rate is a whole multiple of the video's
+frame rate: every frame is then shown the same number of times. Otherwise
+some frames stay on screen longer than others, which shows as a slight
+judder, most visible in slow camera pans.
+
+| Content | Typical frame rate | Even at | Judders slightly at |
+|---|---|---|---|
+| Live TV in Germany / Europe (e.g. MagentaTV, Zattoo, Waipu) | 50 or 25 fps | **50 Hz** (25 and 50 fps), 75 Hz (25 fps only) | 60 Hz and all other rates |
+| Films and series (Netflix, Prime Video, Disney+, media libraries) | 24 fps, some European productions 25 fps | **72 Hz** (24 fps) | 60 Hz |
+| YouTube | mixed: 24, 25, 30, 50 or 60 fps | **60 Hz** for 30 and 60 fps | depends on the video |
+| Social media (TikTok, Instagram, X) | mostly 30 fps, some 60 fps | **60 Hz**, 90 Hz (30 fps only) | 66–84 Hz |
+| Twitch | 30 or 60 fps | **60 Hz** | other rates |
+| Games | usually capped at 30 or 60 fps | **60 Hz**, 90 Hz (30 fps only) | 66–84 Hz |
+| User interface, scrolling | – | higher is smoother | – |
+
+In short:
+- **Everyday mix:** 60 Hz (the default build) is the best all-rounder.
+- **Mostly films and series:** 72 Hz.
+- **Mostly European TV:** 50 Hz is the perfect match, see the tip below.
+- **Smoothest interface:** 69–75 Hz, accepting slight judder in videos.
+
+### Tips for the default build
+
+Android uses 60 Hz for video playback unless the app asks for another rate,
+and most apps don't. For an evening of European TV you can cap the display at
+50 Hz, which shows 25 and 50 fps TV without any judder:
+
+```sh
+# cap at 50 Hz (perfect for 50/25 fps TV)
+su -c "settings put system peak_refresh_rate 50.0"
+
+# back to normal (50/60 Hz automatic)
+su -c "settings delete system peak_refresh_rate; settings delete system min_refresh_rate"
+
+# never drop to 50 Hz (always 60 Hz)
+su -c "settings put system min_refresh_rate 60.0"
+```
 
 **Check what is active:**
 
 ```sh
+# current mode and the modes the display offers
+su -c "dumpsys display" | grep -oE "renderFrameRate [0-9.]+|fps=[0-9.]+" | sort -u
+
+# show the current rate on screen (0 to switch it off)
+su -c "service call SurfaceFlinger 1034 i32 1"
+
+# fixed rate set at flash time: 0 = none, 1-7 = 66 to 90 Hz
 cat /sys/module/msm_drm/parameters/framerate_override
 ```
 
-`0` means 60 Hz, `1` to `7` are the steps from 66 to 90 Hz. crDroid can also
-show the current rate (Developer options → Show refresh rate).
-
-**Back to 60 Hz:** flash the zip without a rate in its name and delete
-`/sdcard/framerate_override` if you created it.
-
-> ⚠️ This is display overclocking. Not every panel handles every step.
-> Start with 66 or 69 Hz. Check for skipped frames with the frame skipping
-> test on [testufo.com](https://www.testufo.com/frameskipping) (take a photo
-> with about 1/10 s exposure; the boxes must be lit without gaps).
-> Higher rates use a bit more battery. If the screen flickers, shows lines
-> or stays black, reflash the zip without a rate in its name.
+**Why not 72/75 Hz automatically?** The kernel could offer them too, and it
+worked in testing. But since Android 15 apps report a frame rate category
+while scrolling, and Android maps the "normal" category to 60 Hz on this
+phone. The higher modes were therefore only used when forced, so a fixed rate
+chosen at flash time is the simpler way to get them.
 
 ## Features
 
@@ -108,8 +165,8 @@ show the current rate (Developer options → Show refresh rate).
 - OpenELA LTS **4.14.357** merged into REVUELTO
 - Built with **clang 19** and ThinLTO
 - **GPU**: frequency/voltage table from InfiniR, up to **810 MHz**
-- **Display**: optional refresh rate from 66 to 90 Hz
-  (see [Display refresh rate](#display-refresh-rate-optional))
+- **Display**: 60 Hz with automatic 50 Hz when idle, or a fixed rate from
+  66 to 90 Hz chosen at flash time (see [Display refresh rate](#display-refresh-rate))
 
 ### Root
 - **KernelSU-Next legacy**, built into the kernel
@@ -173,6 +230,9 @@ adapted by hand.
   FUSE paths such as `/sdcard`.
 - **Display overclocking is panel-dependent.** Higher refresh rates may skip
   frames or flicker on some phones; 60 Hz stays the default.
+- **Automatic 50 Hz is new.** It was tested on crDroid 11 only. If you see
+  flicker when the screen goes idle, use
+  `su -c "settings put system min_refresh_rate 60.0"` and please report it.
 - **No debugfs.** Apps that read kernel wakelocks from debugfs (e.g.
   BetterBatteryStats) cannot show them. App wakelocks are still visible.
 - **Spectre branch-predictor hardening is off** in favour of performance.
@@ -209,7 +269,7 @@ sudo apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
 Build:
 
 ```sh
-git clone -b revenir-a16 https://github.com/b3zib3zi/kernel_xiaomi_cepheus
+git clone -b revenir-a16-dynhz-test https://github.com/b3zib3zi/kernel_xiaomi_cepheus
 cd kernel_xiaomi_cepheus
 ./build.sh
 ```
