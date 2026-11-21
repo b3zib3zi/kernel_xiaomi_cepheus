@@ -205,6 +205,7 @@ struct dsi_panel {
 
 	struct dsi_display_mode *cur_mode;
 	u32 num_timing_nodes;
+	bool multifps;
 	u32 num_display_modes;
 
 	struct dsi_regulator_info power_info;

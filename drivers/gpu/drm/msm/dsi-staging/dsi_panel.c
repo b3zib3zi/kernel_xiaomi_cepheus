@@ -955,6 +955,25 @@ error:
 static unsigned int framerate_override;
 module_param(framerate_override, uint, 0444);
 
+/*
+ * REVENIR: without a fixed framerate_override, the 60 Hz command mode panel
+ * of cepheus is offered to userspace as a 60 Hz and a 50 Hz mode. 60 Hz is
+ * the first (preferred) mode, so the phone boots at stock 60 Hz, and Android
+ * can drop to 50 Hz while nothing on screen changes. The DSI link clock is
+ * scaled with the refresh rate, the same way framerate_override does it.
+ * With framerate_override set (66-90 Hz chosen at flash time), only that
+ * single fixed mode is offered, as before.
+ */
+static const u32 multifps_rates[] = { 60, 50 };
+#define MULTIFPS_COUNT ARRAY_SIZE(multifps_rates)
+/* target rate for the dsi_panel_parse_timing() call in progress, 0 = none */
+static u32 multifps_target;
+
+static bool dsi_panel_is_multifps_clk(u64 clk)
+{
+	return clk == 1100000000 || clk == 1103000000;
+}
+
 static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 				  struct dsi_parser_utils *utils)
 {
@@ -993,6 +1012,9 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		else if (framerate_override == 1)
 			mode->clk_rate_hz = 1210000000; // 66hz
 	}
+	if (multifps_target && multifps_target != 60 &&
+	    dsi_panel_is_multifps_clk(tmp64))
+		mode->clk_rate_hz = div_u64(1100000000ULL * multifps_target, 60);
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
@@ -1032,6 +1054,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		else if (framerate_override == 1)
 			mode->refresh_rate = 66;
 	}
+	if (multifps_target && mode->refresh_rate == 60)
+		mode->refresh_rate = multifps_target;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-panel-width",
 				  &mode->h_active);
@@ -3882,6 +3906,32 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 		!panel->panel_mode_switch_enabled)
 		count = SINGLE_MODE_SUPPORT;
 
+	panel->multifps = false;
+	if (panel->panel_mode == DSI_OP_CMD_MODE && count == 1 &&
+	    !framerate_override && !panel->dyn_clk_caps.dyn_clk_support) {
+		u32 fps = 0;
+		u64 clk = 0;
+
+		dsi_for_each_child_node(timings_np, child_np) {
+			utils->read_u32(child_np,
+				"qcom,mdss-dsi-panel-framerate", &fps);
+			if (utils->read_u64(child_np,
+				"qcom,mdss-dsi-panel-clockrate", &clk) ==
+				-EOVERFLOW) {
+				u32 clk32 = 0;
+
+				utils->read_u32(child_np,
+					"qcom,mdss-dsi-panel-clockrate", &clk32);
+				clk = clk32;
+			}
+		}
+		if (fps == 60 && dsi_panel_is_multifps_clk(clk)) {
+			panel->multifps = true;
+			count = MULTIFPS_COUNT;
+			pr_info("REVENIR: offering %u refresh rates\n", count);
+		}
+	}
+
 	panel->num_timing_nodes = count;
 	dsi_for_each_child_node(timings_np, child_np) {
 		if (utils->read_bool(child_np, "qcom,mdss-dsi-video-mode"))
@@ -3914,6 +3964,9 @@ int dsi_panel_get_mode_count(struct dsi_panel *panel)
 		num_cmd_modes  = 1;
 	else
 		num_cmd_modes = num_cmd_modes * num_bit_clks;
+
+	if (panel->multifps)
+		num_cmd_modes = MULTIFPS_COUNT;
 
 	panel->num_display_modes = num_video_modes + num_cmd_modes;
 
@@ -4073,6 +4126,15 @@ int dsi_panel_get_mode(struct dsi_panel *panel,
 
 	utils_data = utils->data;
 
+	if (panel->multifps) {
+		if (index >= MULTIFPS_COUNT) {
+			rc = -EINVAL;
+			goto parse_fail;
+		}
+		multifps_target = multifps_rates[index];
+		index = 0;
+	}
+
 	dsi_for_each_child_node(timings_np, child_np) {
 		if (index != child_idx++)
 			continue;
@@ -4147,6 +4209,7 @@ parse_fail:
 	kfree(mode->priv_info);
 	mode->priv_info = NULL;
 done:
+	multifps_target = 0;
 	utils->data = utils_data;
 	mutex_unlock(&panel->panel_lock);
 	return rc;
