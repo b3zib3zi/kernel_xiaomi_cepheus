@@ -14,7 +14,7 @@
 set -e
 
 # Version of this kernel and of the parts it carries
-REVENIR_VER="${REVENIR_VER:-1.0}"
+REVENIR_VER="${REVENIR_VER:-1.0.1}"
 ANDROID_VER="A15"
 # Names the KernelSU-Next manager release users have to install (UAPI 5).
 # The kernel itself reports the tag of its checkout, v3.4.0-legacy.
