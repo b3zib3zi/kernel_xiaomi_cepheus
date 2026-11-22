@@ -2691,6 +2691,52 @@ static ssize_t fts_fod_test_store(struct device *dev,
 	}
 	return count;
 }
+
+/*
+ * REVENIR: compatibility nodes for ROMs built against the InfiniR kernel
+ * (e.g. crDroid). Their fingerprint and udfps HALs use
+ * /sys/devices/virtual/touch/tp_dev/{fod_status,fod_state} instead of
+ * /sys/touchpanel/fod_status. fod_status is the same switch as the
+ * touchpanel node, fod_state reports "x,y,pressed" and is polled.
+ */
+#ifdef CONFIG_TOUCHSCREEN_COMMON
+static ssize_t fts_tpdev_fod_status_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+{
+	return fts_fod_status_show(NULL, NULL, buf);
+}
+
+static ssize_t fts_tpdev_fod_status_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	return fts_fod_status_store(NULL, NULL, buf, count);
+}
+
+static DEVICE_ATTR(fod_status, (S_IRUGO | S_IWUSR | S_IWGRP),
+		   fts_tpdev_fod_status_show, fts_tpdev_fod_status_store);
+#endif
+
+static ssize_t fts_fod_state_show(struct device *dev,
+				  struct device_attribute *attr, char *buf)
+{
+	struct fts_ts_info *info = dev_get_drvdata(dev);
+
+	if (!info->fod_pressed)
+		return snprintf(buf, TSP_BUF_SIZE, "0,0,0\n");
+	return snprintf(buf, TSP_BUF_SIZE, "%lu,%lu,1\n", info->fod_x,
+			info->fod_y);
+}
+
+static DEVICE_ATTR(fod_state, S_IRUGO, fts_fod_state_show, NULL);
+
+static void fts_fod_state_notify(struct fts_ts_info *info)
+{
+	if (info->fts_touch_dev)
+		sysfs_notify(&info->fts_touch_dev->kobj, NULL,
+			     dev_attr_fod_state.attr.name);
+}
 #endif
 #ifdef CONFIG_TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 static ssize_t fts_touchgame_show(struct device *dev,
@@ -3431,7 +3477,10 @@ static void fts_leave_pointer_event_handler(struct fts_ts_info *info,
 		if (!touch_condition)
 			input_report_key(info->input_dev, BTN_TOOL_FINGER, 0);
 #ifdef CONFIG_FTS_FOD_AREA_REPORT
-		info->fod_pressed = false;
+		if (info->fod_pressed) {
+			info->fod_pressed = false;
+			fts_fod_state_notify(info);
+		}
 		info->fod_overlap = 0;
 		input_report_key(info->input_dev, BTN_INFO, 0);
 		input_report_key(info->input_dev, KEY_INFO, 0);
@@ -3825,6 +3874,7 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 				     !info->sleep_finger) ||
 				    !info->sensor_sleep) {
 					info->fod_pressed = true;
+					fts_fod_state_notify(info);
 					input_report_key(info->input_dev,
 							 BTN_INFO, 1);
 					input_report_key(info->input_dev,
@@ -3904,7 +3954,10 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 			input_sync(info->input_dev);
 			info->sleep_finger = 0;
 			info->fod_overlap = 0;
-			info->fod_pressed = false;
+			if (info->fod_pressed) {
+				info->fod_pressed = false;
+				fts_fod_state_notify(info);
+			}
 			goto gesture_done;
 		}
 #endif
@@ -7322,6 +7375,18 @@ static int fts_probe(struct spi_device *client)
 			 "%s ERROR: Failed to create fod_test sysfs group!\n",
 			 tag);
 	}
+#ifdef CONFIG_TOUCHSCREEN_COMMON
+	error = sysfs_create_file(&info->fts_touch_dev->kobj,
+				  &dev_attr_fod_status.attr);
+	if (error)
+		logError(1, "%s ERROR: Failed to create tp_dev fod_status!\n",
+			 tag);
+#endif
+	error = sysfs_create_file(&info->fts_touch_dev->kobj,
+				  &dev_attr_fod_state.attr);
+	if (error)
+		logError(1, "%s ERROR: Failed to create tp_dev fod_state!\n",
+			 tag);
 #endif
 	info->tp_lockdown_info_proc = proc_create("tp_lockdown_info", 0444,
 						  NULL, &fts_lockdown_info_ops);
@@ -7363,6 +7428,11 @@ static int fts_probe(struct spi_device *client)
 
 #ifdef CONFIG_TOUCHSCREEN_COMMON
 #ifdef GESTURE_MODE
+	/* REVENIR: /proc/touchpanel/wake_gesture for InfiniR based ROMs */
+	if (!tp_common_set_wake_gesture_ops(&double_tap_ops) &&
+	    !proc_symlink("touchpanel", NULL, "/sys/touchpanel"))
+		logError(1, "%s %s: Failed to create /proc/touchpanel\n", tag,
+			 __func__);
 	retval = tp_common_set_double_tap_ops(&double_tap_ops);
 	if (retval < 0) {
 		logError(1, "%s %s: Failed to create double_tap node err=%d\n",
