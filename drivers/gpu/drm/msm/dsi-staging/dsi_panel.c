@@ -1307,6 +1307,27 @@ error:
 	return rc;
 }
 
+/*
+ * REVENIR: fixed display overclock for the cepheus panel (60 Hz cmd mode,
+ * DSI clock 1.1/1.103 GHz). Set msm_drm.framerate_override=N on the kernel
+ * command line, N = 1..7 for 66/69/72/75/81/84/90 Hz. 0 keeps 60 Hz.
+ */
+static unsigned int framerate_override;
+module_param(framerate_override, uint, 0444);
+
+static const struct {
+	u32 refresh_rate;
+	u64 clk_rate_hz;
+} framerate_override_table[] = {
+	{ 66, 1210000000 },
+	{ 69, 1265000000 },
+	{ 72, 1320000000 },
+	{ 75, 1375000000 },
+	{ 81, 1485000000 },
+	{ 84, 1540000000 },
+	{ 90, 1650000000 },
+};
+
 static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 				  struct dsi_parser_utils *utils)
 {
@@ -1315,6 +1336,7 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	u32 val = 0;
 	struct dsi_display_mode *display_mode;
 	struct dsi_display_mode_priv_info *priv_info;
+	const typeof(framerate_override_table[0]) *oc = NULL;
 
 	display_mode = container_of(mode, struct dsi_display_mode, timing);
 
@@ -1329,6 +1351,12 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 	}
 
 	mode->clk_rate_hz = !rc ? tmp64 : 0;
+	if (framerate_override &&
+	    framerate_override <= ARRAY_SIZE(framerate_override_table) &&
+	    (tmp64 == 1100000000 || tmp64 == 1103000000)) {
+		oc = &framerate_override_table[framerate_override - 1];
+		mode->clk_rate_hz = oc->clk_rate_hz;
+	}
 	display_mode->priv_info->clk_rate_hz = mode->clk_rate_hz;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-mdp-transfer-time-us",
@@ -1352,6 +1380,14 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc && mode->refresh_rate == 60) {
+		mode->refresh_rate = oc->refresh_rate;
+	} else if (oc) {
+		/* not the 60 Hz timing: keep it as it is */
+		mode->clk_rate_hz = tmp64;
+		display_mode->priv_info->clk_rate_hz = tmp64;
+		oc = NULL;
+	}
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-panel-width",
 				  &mode->h_active);
@@ -1368,6 +1404,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->h_front_porch = 32;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-h-back-porch",
@@ -1377,6 +1415,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->h_back_porch = 16;
 
 	rc = utils->read_u32(utils->data,
 				"qcom,mdss-dsi-h-pulse-width",
@@ -1386,6 +1426,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->h_sync_width = 16;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-h-sync-skew",
 				  &mode->h_skew);
@@ -1411,6 +1453,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->v_back_porch = 16;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-v-front-porch",
 				  &mode->v_front_porch);
@@ -1419,6 +1463,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->v_front_porch = 8;
 
 	rc = utils->read_u32(utils->data, "qcom,mdss-dsi-v-pulse-width",
 				  &mode->v_sync_width);
@@ -1427,6 +1473,8 @@ static int dsi_panel_parse_timing(struct dsi_mode_info *mode,
 		       rc);
 		goto error;
 	}
+	if (oc)
+		mode->v_sync_width = 8;
 	pr_debug("panel vert active:%d front_portch:%d back_porch:%d pulse_width:%d\n",
 		mode->v_active, mode->v_front_porch, mode->v_back_porch,
 		mode->v_sync_width);
