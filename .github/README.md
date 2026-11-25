@@ -14,14 +14,43 @@ The name is a blend of the two kernels this work grew out of:
 
 ---
 
+## What's new in 1.1
+
+REVENIR 1.1 is REVENIR 1.0 plus 20 security and stability fixes for the
+Qualcomm drivers and the kernel core. Most of them close holes listed in
+Qualcomm's security bulletins and are taken from the LineageOS sm8150 kernel,
+where they are already in use. Everything else stays as in 1.0: same GPU
+table, same KernelSU-Next, same SUSFS, same display options.
+
+- **GPU (kgsl):** use-after-free when an ION buffer is released; wrong buffer
+  alignment caused by sign extension of the alignment value; error handling
+  when switching draw contexts
+- **DSP / FastRPC (adsprpc):** use-after-free in the global map list; DMA
+  handle maps left behind after an error; buffer allocated one byte short of
+  the terminating NULL; attribute and flag checks when a map is created
+- **NPU:** two use-after-free fixes; a size check of the execute response the
+  firmware sends back
+- **Video (vidc):** use-after-free when buffers are unregistered
+- **Secure channel (smcinvoke):** the reference count of server objects is
+  dropped under the mutex
+- **WLAN:** out-of-bounds write when the country element of a beacon is
+  parsed; out-of-bounds read when the RNR element is parsed
+- **Audio:** buffer overflow in the voice host PCM copy; size checks before
+  DSP replies are copied in the AFE and ADM drivers; DSP buffer check in the
+  PCM driver
+- **Kernel (rt-mutex):** two fixes in the error path of priority-inheritance
+  locking (PI futexes) that could corrupt the waiter list and crash the kernel
+
 ## Which build do I need?
 
 | Your ROM | Root only | Root + SUSFS (conservative) | Root + SUSFS (newest) |
 |---|---|---|---|
-| **Android 14 / 15** (e.g. crDroid 10, 11) | `revenir-a15` | `revenir-a15-susfs-2.1.0` | `revenir-a15-susfs-2.4.0` |
-| **Android 16** (e.g. crDroid 12) | `revenir-a16` | `revenir-a16-susfs-2.1.0` | `revenir-a16-susfs-2.4.0` |
+| **Android 14 / 15** (e.g. crDroid 10, 11) | `revenir-1.1-a15` | `revenir-1.1-a15-susfs-2.1.0` | `revenir-1.1-a15-susfs-2.4.0` |
+| **Android 16** (e.g. crDroid 12) | `revenir-1.1-a16` | `revenir-1.1-a16-susfs-2.1.0` | `revenir-1.1-a16-susfs-2.4.0` |
 
-Each name is both the source branch and the release tag (`revenir-1.0-...`).
+Each name is the source branch of that build. The sources of REVENIR 1.0 stay
+in the branches without a version number (`revenir-a16`, `revenir-a15-susfs-2.4.0`
+and so on).
 
 - **Android version matters.** The A16 builds carry the extra syscalls and BPF
   support that Android 16 needs. Use the A15 builds on Android 14 and 15.
@@ -66,7 +95,7 @@ going back to 60 Hz only takes another flash.
 for example:
 
 ```
-REVENIR-1.0-cepheus-A16-KSUN-3.4.2-20261116-69hz.zip
+REVENIR-1.1-cepheus-A16-KSUN-3.4.2-20261125-69hz.zip
 ```
 
 Allowed: `66hz`, `69hz`, `72hz`, `75hz`, `81hz`, `84hz`, `90hz` (or `69fps`
@@ -155,6 +184,8 @@ adapted by hand.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
+- Since 1.1: 20 security and stability fixes for the Qualcomm drivers and the
+  rt-mutex code (see [What's new in 1.1](#whats-new-in-11))
 
 ## Known limitations
 
@@ -204,7 +235,7 @@ sudo apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
 Build:
 
 ```sh
-git clone -b revenir-a16 https://github.com/b3zib3zi/kernel_xiaomi_cepheus
+git clone -b revenir-1.1-a16 https://github.com/b3zib3zi/kernel_xiaomi_cepheus
 cd kernel_xiaomi_cepheus
 ./build.sh
 ```
@@ -230,6 +261,8 @@ REVENIR only exists because of the work of others. Thank you to:
 - **backslashxx** for the manual hooks and backports for non-GKI kernels,
   **ShevT** for the devpts fix
 - the **OpenELA** project for keeping the 4.14 LTS kernel alive
+- the **LineageOS** sm8150 maintainers (xiaomi-sm8150-devs), whose kernel the
+  1.1 security fixes are taken from, and the Qualcomm engineers who wrote them
 - the upstream Linux developers whose patches are backported here
 - **osm0sis** for AnyKernel3
 - everyone who tested the builds and reported back
