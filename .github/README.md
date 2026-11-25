@@ -74,11 +74,16 @@ The zips contain **no dtbo**, your current dtbo stays untouched.
 Older managers will not work correctly: the SUSFS builds report KernelSU UAPI 5,
 which manager v3.4.0 does not support.
 
-## Display refresh rate (optional)
+## Display refresh rate (optional, not recommended)
 
-REVENIR runs the display at the stock **60 Hz** by default. You can raise the
-refresh rate when you flash the kernel. Nothing is changed in the dtbo, and
-going back to 60 Hz only takes another flash.
+> ⛔ **Not recommended.** Every rate above 60 Hz overclocks the display panel
+> and runs it outside its specification. This can damage the panel. REVENIR
+> stays at the stock 60 Hz unless you turn this on, and we recommend leaving
+> it there. If you use it anyway, you do so at your own risk.
+
+REVENIR runs the display at the stock **60 Hz** by default. If you still want
+a higher rate, you can set it when you flash the kernel. Nothing is changed in
+the dtbo, and going back to 60 Hz only takes another flash.
 
 | Refresh rate | Display link clock |
 |---|---|
@@ -119,12 +124,14 @@ show the current rate (Developer options → Show refresh rate).
 **Back to 60 Hz:** flash the zip without a rate in its name and delete
 `/sdcard/framerate_override` if you created it.
 
-> ⚠️ This is display overclocking. Not every panel handles every step.
-> Start with 66 or 69 Hz. Check for skipped frames with the frame skipping
-> test on [testufo.com](https://www.testufo.com/frameskipping) (take a photo
-> with about 1/10 s exposure; the boxes must be lit without gaps).
-> Higher rates use a bit more battery. If the screen flickers, shows lines
-> or stays black, reflash the zip without a rate in its name.
+> ⚠️ If you use it anyway: the higher the rate, the further the panel runs
+> beyond its specification. Stay at the lowest step you need. If the screen
+> flickers, shows lines or stays black, reflash the zip without a rate in its
+> name at once. A clean result in the
+> [frame skipping test](https://www.testufo.com/frameskipping) (photo with about
+> 1/10 s exposure, the boxes must be lit without gaps) only
+> shows that no frames are lost. It does not show that the rate is safe for
+> the panel. Higher rates also use a bit more battery.
 
 ## Features
 
@@ -132,8 +139,9 @@ show the current rate (Developer options → Show refresh rate).
 - OpenELA LTS **4.14.357** merged into REVUELTO
 - Built with **clang 19** and ThinLTO
 - **GPU**: frequency/voltage table from InfiniR, up to **810 MHz**
-- **Display**: optional refresh rate from 66 to 90 Hz
-  (see [Display refresh rate](#display-refresh-rate-optional))
+- **Display**: optional refresh rate from 66 to 90 Hz, not recommended
+  because it can damage the panel
+  (see [Display refresh rate](#display-refresh-rate-optional-not-recommended))
 
 ### Root
 - **KernelSU-Next legacy**, built into the kernel
@@ -197,8 +205,9 @@ adapted by hand.
   hiding of SUSFS (KernelSU-Next's own selinux_hide is used instead) and the
   kallsyms filter (kallsyms is off anyway). open_redirect does not work on
   FUSE paths such as `/sdcard`.
-- **Display overclocking is panel-dependent.** Higher refresh rates may skip
-  frames or flicker on some phones; 60 Hz stays the default.
+- **Display overclocking is not recommended.** Rates above 60 Hz run the
+  panel outside its specification and can damage it. They may also skip
+  frames or flicker on some phones. 60 Hz stays the default.
 - **No debugfs.** Apps that read kernel wakelocks from debugfs (e.g.
   BetterBatteryStats) cannot show them. App wakelocks are still visible.
 - **Spectre branch-predictor hardening is off** in favour of performance.
