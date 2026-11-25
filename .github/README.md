@@ -65,10 +65,15 @@ Android switches between the two on its own. In testing on crDroid 11 the
 switch was seamless, without flicker, also at low brightness. The display link
 clock is scaled with the rate (60 Hz: 1.103 GHz, 50 Hz: about 0.92 GHz).
 
-### Fixed rate: choose it when flashing
+### Fixed rate above 60 Hz (not recommended)
 
-For a higher rate, add it to the zip name before flashing. The display then
-runs at exactly that rate, as in REVENIR 1.0:
+> ⛔ **Not recommended.** Every rate above 60 Hz overclocks the display panel
+> and runs it outside its specification. This can damage the panel. REVENIR
+> stays at the stock 60 Hz unless you turn this on, and we recommend leaving
+> it there. If you use it anyway, you do so at your own risk.
+
+If you still want a higher rate, add it to the zip name before flashing. The
+display then runs at exactly that rate, as in REVENIR 1.0:
 
 ```
 REVENIR-1.0.1-cepheus-A15-KSUN-3.4.2-20261121-69hz.zip
@@ -86,19 +91,22 @@ again on every future kernel update.
 | 50 Hz | 20.0 ms | ~0.92 GHz | only in the default build, chosen automatically |
 | 60 Hz | 16.7 ms | 1.103 GHz | stock |
 | 66 Hz | 15.2 ms | 1.21 GHz | |
-| 69 Hz | 14.5 ms | 1.265 GHz | good first step |
+| 69 Hz | 14.5 ms | 1.265 GHz | |
 | 72 Hz | 13.9 ms | 1.32 GHz | matches 24 fps films |
 | 75 Hz | 13.3 ms | 1.375 GHz | matches 25 fps video |
 | 81 Hz | 12.3 ms | 1.485 GHz | |
 | 84 Hz | 11.9 ms | 1.54 GHz | |
 | 90 Hz | 11.1 ms | 1.65 GHz | matches 30 fps content; may skip frames on some panels |
 
-> ⚠️ Rates above 60 Hz are display overclocking. Not every panel handles every
-> step. Start with 66 or 69 Hz and check for skipped frames with the
+> ⚠️ If you use it anyway: the higher the rate, the further the panel runs
+> beyond its specification. Stay at the lowest step you need. If the screen
+> flickers, shows lines or stays black, reflash the zip without a rate in its
+> name at once. A clean result in the
 > [frame skipping test](https://www.testufo.com/frameskipping) (don't touch the
-> screen, take a photo with about 1/10 s exposure; the boxes must be lit
-> without gaps). Higher rates use a bit more battery. If the screen flickers,
-> shows lines or stays black, reflash the zip without a rate in its name.
+> screen, photo with about 1/10 s exposure, the boxes must be lit without
+> gaps) only
+> shows that no frames are lost. It does not show that the rate is safe for
+> the panel. Higher rates also use a bit more battery.
 
 ### Which rate fits which content?
 
@@ -117,11 +125,14 @@ judder, most visible in slow camera pans.
 | Games | usually capped at 30 or 60 fps | **60 Hz**, 90 Hz (30 fps only) | 66–84 Hz |
 | User interface, scrolling | – | higher is smoother | – |
 
+Rates above 60 Hz appear in the table only to explain the judder. They are
+display overclocking and not recommended (see above).
+
 In short:
 - **Everyday mix:** 60 Hz (the default build) is the best all-rounder.
-- **Mostly films and series:** 72 Hz.
+- **Mostly films and series:** 60 Hz. 72 Hz would show 24 fps without judder,
+  but it is overclocking and not recommended.
 - **Mostly European TV:** 50 Hz is the perfect match, see the tip below.
-- **Smoothest interface:** 69–75 Hz, accepting slight judder in videos.
 
 ### Tips for the default build
 
@@ -156,8 +167,8 @@ cat /sys/module/msm_drm/parameters/framerate_override
 **Why not 72/75 Hz automatically?** The kernel could offer them too, and it
 worked in testing. But since Android 15 apps report a frame rate category
 while scrolling, and Android maps the "normal" category to 60 Hz on this
-phone. The higher modes were therefore only used when forced, so a fixed rate
-chosen at flash time is the simpler way to get them.
+phone. The higher modes were therefore only used when forced, so they stay a
+fixed option chosen at flash time, which is not recommended (see above).
 
 ## Features
 
@@ -166,7 +177,8 @@ chosen at flash time is the simpler way to get them.
 - Built with **clang 19** and ThinLTO
 - **GPU**: frequency/voltage table from InfiniR, up to **810 MHz**
 - **Display**: 60 Hz with automatic 50 Hz when idle, or a fixed rate from
-  66 to 90 Hz chosen at flash time (see [Display refresh rate](#display-refresh-rate))
+  66 to 90 Hz chosen at flash time (not recommended, it can damage the panel;
+  see [Display refresh rate](#display-refresh-rate))
 
 ### Root
 - **KernelSU-Next legacy**, built into the kernel
@@ -228,8 +240,9 @@ adapted by hand.
   hiding of SUSFS (KernelSU-Next's own selinux_hide is used instead) and the
   kallsyms filter (kallsyms is off anyway). open_redirect does not work on
   FUSE paths such as `/sdcard`.
-- **Display overclocking is panel-dependent.** Higher refresh rates may skip
-  frames or flicker on some phones; 60 Hz stays the default.
+- **Display overclocking is not recommended.** Rates above 60 Hz run the
+  panel outside its specification and can damage it. They may also skip
+  frames or flicker on some phones. 60 Hz stays the default.
 - **Automatic 50 Hz is new.** It was tested on crDroid 11 only. If you see
   flicker when the screen goes idle, use
   `su -c "settings put system min_refresh_rate 60.0"` and please report it.
