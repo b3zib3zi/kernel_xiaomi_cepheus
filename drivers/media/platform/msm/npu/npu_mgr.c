@@ -762,6 +762,12 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 		}
 
 		pr_debug("network id : %llu\n", network->id);
+		if (exe_rsp_pkt->header.size < sizeof(*exe_rsp_pkt)) {
+			pr_err("invalid packet header size, header.size: %d",
+				exe_rsp_pkt->header.size);
+			network_put(network);
+			break;
+		}
 		stats_size = exe_rsp_pkt->header.size - sizeof(*exe_rsp_pkt);
 		pr_debug("stats_size %d:%d\n", exe_rsp_pkt->header.size,
 			stats_size);
