@@ -28,7 +28,8 @@ Android versions.
 - **KernelSU-Next legacy** (33314 / `v3.4.0-legacy`, manager **v3.4.2**),
   built in, with manual hooks for non-GKI kernels
 - **GPU**: InfiniR frequency/voltage table, up to **810 MHz**
-- **Display overclock** by zip name, as in REVENIR 1.x (66 to 90 Hz, see below)
+- **Display overclock** by zip name, as in REVENIR 1.x (66 to 90 Hz, not
+  recommended because it can damage the panel, see below)
 - **Compatibility with crDroid**: crDroid's fingerprint (FOD) and
   double-tap HALs expect the node layout of the InfiniR kernel. The touch
   driver now offers both layouts:
@@ -61,6 +62,11 @@ The REVENIR 4000 mAh dtbo add-on is made for the crDroid dtbo and does not
 work with 2.0.
 
 ## Display refresh rate
+
+> ⛔ **Not recommended.** Every rate above 60 Hz overclocks the display panel
+> and runs it outside its specification. This can damage the panel. REVENIR
+> stays at the stock 60 Hz unless you turn this on, and we recommend leaving
+> it there. If you use it anyway, you do so at your own risk.
 
 As in REVENIR 1.x the panel can run at a fixed higher refresh rate. Put the
 rate into the zip name before flashing (e.g. `...-75hz.zip`) or write it to
