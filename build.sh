@@ -14,7 +14,7 @@
 set -e
 
 # Version of this kernel and of the parts it carries
-REVENIR_VER="${REVENIR_VER:-1.0}"
+REVENIR_VER="${REVENIR_VER:-1.1}"
 ANDROID_VER="A16"
 KSUN_VER="3.4.2"
 SUSFS_VER="2.4.0"
