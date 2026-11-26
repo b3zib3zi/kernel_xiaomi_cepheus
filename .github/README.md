@@ -31,6 +31,19 @@ Each name is both the source branch and the release tag (`revenir-1.0-...`).
   its features work on this kernel (see below). 2.4.0 has the full feature set
   but is a newer port. If something misbehaves on 2.4.0, go back to 2.1.0.
 
+## Supported ROMs
+
+- **Tested:** crDroid 10 and 11 with the A15 builds, crDroid 12 with the A16
+  builds.
+- **Other AOSP ROMs** for the Mi 9 on Android 14 to 16 may work, most likely
+  LineageOS and ROMs based on it, as crDroid is. They are not tested. If you
+  try one, check the in-display fingerprint, double tap to wake, the refresh
+  rate, charging, the camera, calls, Wi-Fi, Bluetooth and NFC, and please
+  [report back](#reporting-a-problem).
+- **MIUI is not supported.** Its display, fingerprint and thermal services
+  rely on Xiaomi kernel interfaces that this kernel does not have.
+- **Android 13 and older** are not tested.
+
 ## Installation
 
 1. Install **KernelSU-Next manager v3.4.2**. This is the manager for all
