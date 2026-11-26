@@ -27,7 +27,8 @@ Android versions.
 
 - **KernelSU-Next legacy** (33314 / `v3.4.0-legacy`, manager **v3.4.2**),
   built in, with manual hooks for non-GKI kernels
-- **GPU**: InfiniR frequency/voltage table, up to **810 MHz**
+- **GPU**: frequency/voltage table based on InfiniR, up to **765 MHz**,
+  as in REVENIR 1.1 (810 MHz removed, 765 MHz at TURBO)
 - **Display overclock** by zip name, as in REVENIR 1.x (66 to 90 Hz, not
   recommended because it can damage the panel, see below)
 - **Compatibility with crDroid**: crDroid's fingerprint (FOD) and
@@ -89,7 +90,7 @@ Please report with the exact zip name, ROM and version:
 - **fingerprint under the display** (enrolling and unlocking)
 - double tap to wake, proximity sensor during calls
 - GPU: `su -c cat /sys/class/kgsl/kgsl-3d0/gpu_available_frequencies` should
-  start with `810000000`
+  start with `765000000`
 - KernelSU-Next: manager shows the kernel version, modules install
 - battery drain and deep sleep
 
