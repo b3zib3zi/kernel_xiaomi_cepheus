@@ -18,7 +18,7 @@ The name is a blend of the two kernels this work grew out of:
 
 REVENIR 1.1 is REVENIR 1.0 plus:
 
-- **20 security and stability fixes** for the Qualcomm drivers and the
+- **22 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
   bulletins and are taken from the LineageOS sm8150 kernel, where they are
   already in use.
@@ -41,11 +41,18 @@ display options.
 - **Video (vidc):** use-after-free when buffers are unregistered
 - **Secure channel (smcinvoke):** the reference count of server objects is
   dropped under the mutex
-- **WLAN:** out-of-bounds write when the country element of a beacon is
-  parsed; out-of-bounds read when the RNR element is parsed
-- **Audio:** buffer overflow in the voice host PCM copy; size checks before
-  DSP replies are copied in the AFE and ADM drivers; DSP buffer check in the
-  PCM driver
+- **WLAN:** out-of-bounds read when the RNR element of a beacon is parsed
+- **Audio:**
+  - length check in the voice host PCM copy (buffer overflow), which also
+    releases its lock and the buffer again when it rejects a packet
+  - size checks of DSP replies in the AFE driver
+  - the module count the DSP reports to the ADM driver is treated as
+    unsigned, so a negative value no longer slips past the size check
+  - the PCM capture copy checks the offset the DSP reports and stays inside
+    the DSP buffer
+- **USB and LED drivers:** three values that could be used uninitialised: in
+  the USB gadget log, in USB-PD voltage selection while the charger is being
+  verified, and in the LED pattern helpers
 - **Kernel (rt-mutex):** two fixes in the error path of priority-inheritance
   locking (PI futexes) that could corrupt the waiter list and crash the kernel
 
@@ -61,7 +68,9 @@ highest steps:
 - **765 MHz now runs at the TURBO voltage level** instead of NOM_L1. That
   stopped the hangs at this clock.
 - All other steps are unchanged: effectively two voltage levels below
-  stock, 257 and 195 MHz one level.
+  stock, 257 and 195 MHz one level. For 675, 585 and 499.2 MHz the device
+  tree now names the voltage levels the chip actually uses. The old names
+  were rounded up to these levels anyway, so their voltage stays the same.
 - Highest GPU clock on speed bin 0 is now 765 MHz (REVUELTO: 675 MHz,
   Qualcomm's original table: 585 MHz). Speed bin 1 stays at 675 MHz.
 
@@ -211,8 +220,8 @@ Taken from InfiniR, with additional hardening of the userspace interface.
   Use the 2.4.0 build if you need them.
 
 ### SUSFS 2.4.0
-A port of simonpunk's susfs4ksu v2.4.0 to this 4.14 tree. Every hook was
-adapted by hand.
+A port of simonpunk's susfs4ksu v2.4.0 to this 4.14 tree, with every hook
+adapted to the 4.14 code.
 
 - sus_path, sus_mount, sus_kstat, sus_map, open_redirect
 - uname and `/proc/cmdline` spoofing, priority UID filter, AVC log spoofing
@@ -236,8 +245,8 @@ adapted by hand.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
-- Since 1.1: 20 security and stability fixes for the Qualcomm drivers and the
-  rt-mutex code (see [What's new in 1.1](#whats-new-in-11))
+- Since 1.1: 22 security and stability fixes for the Qualcomm drivers, USB
+  and the rt-mutex code (see [What's new in 1.1](#whats-new-in-11))
 
 ## Known limitations
 
@@ -309,6 +318,9 @@ cd kernel_xiaomi_cepheus
   also applies `KernelSU-Next-susfs-<version>-uapi5.patch`.
 - Set `ANYKERNEL_DIR` to an AnyKernel3 template to get a flashable zip;
   without it you get `out/arch/arm64/boot/Image.gz-dtb`.
+- `/proc/config.gz` on the phone contains a fixed stock-style configuration,
+  not the one the kernel was built with. The real configuration is
+  `arch/arm64/configs/cepheus_defconfig`.
 
 ## Credits
 
