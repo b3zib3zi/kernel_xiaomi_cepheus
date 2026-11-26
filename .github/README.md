@@ -26,8 +26,9 @@ SUSFS, same display options.
 - **GPU table:** the InfiniR table caused GPU hangs under load on the test
   phone, in OpenGL and Vulkan apps alike. Tests pinned to single clocks
   traced them to the two highest steps:
-  - **810 MHz is removed.** It was not stable under load even at a higher
-    voltage.
+  - **810 MHz is removed.** It was unstable under load, even at the TURBO
+    voltage level. A still higher voltage just for this one step does not
+    seem sensible to us, so the step is gone.
   - **765 MHz now runs at the TURBO voltage level** instead of NOM_L1. That
     stopped the hangs at this clock.
   - All other steps are unchanged: effectively two voltage levels below
