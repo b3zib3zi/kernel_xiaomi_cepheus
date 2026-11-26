@@ -4289,8 +4289,10 @@ static ssize_t select_pdo_store(struct device *dev,
 
 	mutex_lock(&pd->swap_lock);
 
-	if (pd->verify_process)
+	if (pd->verify_process) {
+		ret = -EBUSY;
 		goto out;
+	}
 
 	/* Only allowed if we are already in explicit sink contract */
 	if (pd->current_state != PE_SNK_READY) {
@@ -5138,8 +5140,10 @@ int usbpd_select_pdo(struct usbpd *pd, int pdo, int uv, int ua)
 
 	mutex_lock(&pd->swap_lock);
 
-	if (pd->verify_process)
+	if (pd->verify_process) {
+		ret = -EBUSY;
 		goto out;
+	}
 
 	if (pd->current_pr != PR_SINK) {
 		ret = -ENOTSUPP;
