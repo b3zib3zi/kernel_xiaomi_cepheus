@@ -138,8 +138,8 @@ Taken from InfiniR, with additional hardening of the userspace interface.
   Use the 2.4.0 build if you need them.
 
 ### SUSFS 2.4.0
-A port of simonpunk's susfs4ksu v2.4.0 to this 4.14 tree. Every hook was
-adapted by hand.
+A port of simonpunk's susfs4ksu v2.4.0 to this 4.14 tree, with every hook
+adapted to the 4.14 code.
 
 - sus_path, sus_mount, sus_kstat, sus_map, open_redirect
 - uname and `/proc/cmdline` spoofing, priority UID filter, AVC log spoofing
