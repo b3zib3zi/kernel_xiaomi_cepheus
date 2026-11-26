@@ -17,10 +17,23 @@ The name is a blend of the two kernels this work grew out of:
 ## What's new in 1.1
 
 REVENIR 1.1 is REVENIR 1.0 plus 20 security and stability fixes for the
-Qualcomm drivers and the kernel core. Most of them close holes listed in
-Qualcomm's security bulletins and are taken from the LineageOS sm8150 kernel,
-where they are already in use. Everything else stays as in 1.0: same GPU
-table, same KernelSU-Next, same SUSFS, same display options.
+Qualcomm drivers and the kernel core, and a GPU table without the unstable
+top steps. Most of the fixes close holes listed in Qualcomm's security
+bulletins and are taken from the LineageOS sm8150 kernel, where they are
+already in use. Everything else stays as in 1.0: same KernelSU-Next, same
+SUSFS, same display options.
+
+- **GPU table:** the InfiniR table caused GPU hangs under load on the test
+  phone, in OpenGL and Vulkan apps alike. Tests pinned to single clocks
+  traced them to the two highest steps:
+  - **810 MHz is removed.** It was not stable under load even at a higher
+    voltage.
+  - **765 MHz now runs at the TURBO voltage level** instead of NOM_L1. That
+    stopped the hangs at this clock.
+  - All other steps are unchanged: effectively two voltage levels below
+    stock, 257 and 195 MHz one level.
+  - Highest GPU clock on speed bin 0 is now 765 MHz (REVUELTO: 675 MHz,
+    Qualcomm's original table: 585 MHz). Speed bin 1 stays at 675 MHz.
 
 - **GPU (kgsl):** use-after-free when an ION buffer is released; wrong buffer
   alignment caused by sign extension of the alignment value; error handling
@@ -138,7 +151,7 @@ show the current rate (Developer options → Show refresh rate).
 ### Base
 - OpenELA LTS **4.14.357** merged into REVUELTO
 - Built with **clang 19** and ThinLTO
-- **GPU**: frequency/voltage table from InfiniR, up to **810 MHz**
+- **GPU**: frequency/voltage table based on InfiniR, up to **765 MHz**
 - **Display**: optional refresh rate from 66 to 90 Hz, not recommended
   because it can damage the panel
   (see [Display refresh rate](#display-refresh-rate-optional-not-recommended))
@@ -197,8 +210,9 @@ adapted by hand.
 
 ## Known limitations
 
-- **GPU undervolting is chip-dependent.** The InfiniR GPU table runs the GPU
-  at lower voltages than stock. Most phones handle this fine. If you see
+- **GPU undervolting is chip-dependent.** The GPU table runs most steps at
+  lower voltages than stock. It was tested on a Mi 9 with speed bin 0, and
+  how far a chip can be undervolted differs from phone to phone. If you see
   graphics glitches, freezes that recover after a few seconds, or reboots
   under GPU load, please report it with a log (see below).
 - **SUSFS 2.4.0 is still young.** Not included: the experimental SELinux
