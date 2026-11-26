@@ -1007,6 +1007,10 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 			goto fail;
 		}
 
+		/* only copy what is left of the buffer after the offset */
+		if (xfer > size - offset)
+			xfer = size - offset;
+
 		if (copy_to_user(buf, bufptr+offset, xfer)) {
 			pr_err("Failed to copy buf to user\n");
 			ret = -EFAULT;
