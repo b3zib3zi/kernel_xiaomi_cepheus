@@ -16,25 +16,19 @@ The name is a blend of the two kernels this work grew out of:
 
 ## What's new in 1.1
 
-REVENIR 1.1 is REVENIR 1.0 plus 20 security and stability fixes for the
-Qualcomm drivers and the kernel core, and a GPU table without the unstable
-top steps. Most of the fixes close holes listed in Qualcomm's security
-bulletins and are taken from the LineageOS sm8150 kernel, where they are
-already in use. Everything else stays as in 1.0: same KernelSU-Next, same
-SUSFS, same display options.
+REVENIR 1.1 is REVENIR 1.0 plus:
 
-- **GPU table:** the InfiniR table caused GPU hangs under load on the test
-  phone, in OpenGL and Vulkan apps alike. Tests pinned to single clocks
-  traced them to the two highest steps:
-  - **810 MHz is removed.** It was unstable under load, even at the TURBO
-    voltage level. A still higher voltage just for this one step does not
-    seem sensible to us, so the step is gone.
-  - **765 MHz now runs at the TURBO voltage level** instead of NOM_L1. That
-    stopped the hangs at this clock.
-  - All other steps are unchanged: effectively two voltage levels below
-    stock, 257 and 195 MHz one level.
-  - Highest GPU clock on speed bin 0 is now 765 MHz (REVUELTO: 675 MHz,
-    Qualcomm's original table: 585 MHz). Speed bin 1 stays at 675 MHz.
+- **20 security and stability fixes** for the Qualcomm drivers and the
+  kernel core. Most of them close holes listed in Qualcomm's security
+  bulletins and are taken from the LineageOS sm8150 kernel, where they are
+  already in use.
+- **A GPU table without the unstable top steps.**
+- **Two fixes for false error messages** in the kernel log.
+
+Everything else stays as in 1.0: same KernelSU-Next, same SUSFS, same
+display options.
+
+### Security and stability fixes
 
 - **GPU (kgsl):** use-after-free when an ION buffer is released; wrong buffer
   alignment caused by sign extension of the alignment value; error handling
@@ -54,6 +48,42 @@ SUSFS, same display options.
   PCM driver
 - **Kernel (rt-mutex):** two fixes in the error path of priority-inheritance
   locking (PI futexes) that could corrupt the waiter list and crash the kernel
+
+### GPU table
+
+The InfiniR table caused GPU hangs under load on the test phone, in OpenGL
+and Vulkan apps alike. Tests pinned to single clocks traced them to the two
+highest steps:
+
+- **810 MHz is removed.** It was unstable under load, even at the TURBO
+  voltage level. A still higher voltage just for this one step does not
+  seem sensible to us, so the step is gone.
+- **765 MHz now runs at the TURBO voltage level** instead of NOM_L1. That
+  stopped the hangs at this clock.
+- All other steps are unchanged: effectively two voltage levels below
+  stock, 257 and 195 MHz one level.
+- Highest GPU clock on speed bin 0 is now 765 MHz (REVUELTO: 675 MHz,
+  Qualcomm's original table: 585 MHz). Speed bin 1 stays at 675 MHz.
+
+### Cleaner kernel log
+
+- **Charger driver (smb5):** after every wake-up the log showed
+  `failed to read out thermal zone (-61)`. The "usb" thermal zone asks for
+  the temperature of a USB port thermistor that the Mi 9 does not have. The
+  driver now reports this in a way the thermal core skips silently. This fix
+  was added after the 1.0 release and ships for the first time in 1.1.
+- **Audio codec driver (wcd9xxx):** every boot logged
+  `failed to get slimbus pahu-slim-pgd logical address: -6`. The kernel
+  looked for a second codec type, the WCD9360 ("Pahu"), which the Mi 9 does
+  not have and whose driver is not built. It now only looks for it when that
+  driver is enabled. The Mi 9's WCD934x ("Tavil") codec works as before.
+
+### README
+
+- Display overclocking (66 to 90 Hz) is now marked as not recommended: it
+  runs the panel outside its specification and can damage it.
+- The commands for collecting logs under
+  [Reporting a problem](#reporting-a-problem) are fixed.
 
 ## Which build do I need?
 
@@ -235,15 +265,26 @@ Please include:
 2. Your ROM and its version
 3. Your modules (SUSFS module, Zygisk, others)
 4. What happened and how often
-5. Logs taken right after the problem, if possible:
+5. Logs taken right after the problem, before you reboot. Please send the
+   full files, not only lines filtered for "error" or "fail": a GPU hang, for
+   example, contains neither word.
 
 ```sh
-su -c dmesg > /sdcard/dmesg.txt
-logcat -d > /sdcard/logcat.txt
+su -c 'dmesg > /sdcard/Download/dmesg.txt'
+su -c 'logcat -d > /sdcard/Download/logcat.txt'
 ```
 
-After an unexpected reboot, `/sys/fs/pstore/` may contain the log of the
-previous boot.
+Keep the quotes as shown. Without them only `dmesg` runs as root and your
+terminal app writes the file itself, which often fails on `/sdcard`.
+`logcat` without `su` only shows the logs of the terminal app.
+
+After an unexpected reboot, run this first, before you turn the phone off or
+reboot again. It holds the log of the previous boot (it is empty if the phone
+was switched off before):
+
+```sh
+su -c 'cat /proc/last_kmsg > /sdcard/Download/last_kmsg.txt'
+```
 
 ## Building from source
 
