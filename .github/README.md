@@ -28,7 +28,9 @@ Android versions.
 - **KernelSU-Next legacy** (33314 / `v3.4.0-legacy`, manager **v3.4.2**),
   built in, with manual hooks for non-GKI kernels
 - **GPU**: frequency/voltage table based on InfiniR, up to **765 MHz**,
-  as in REVENIR 1.1 (810 MHz removed, 765 MHz at TURBO)
+  as in REVENIR 1.1. 765 MHz runs at TURBO. 810 MHz is removed: it was
+  unstable under load even at TURBO, and a still higher voltage just for
+  this one step does not seem sensible to us.
 - **Display overclock** by zip name, as in REVENIR 1.x (66 to 90 Hz, not
   recommended because it can damage the panel, see below)
 - **Compatibility with crDroid**: crDroid's fingerprint (FOD) and
