@@ -1,11 +1,12 @@
-# REVENIR kernel for the Xiaomi Mi 9 (cepheus)
+# reVeniR kernel for the Xiaomi Mi 9 (cepheus)
 
-REVENIR is a custom kernel for the Xiaomi Mi 9 (codename **cepheus**), built on
+reVeniR is a custom kernel for the Xiaomi Mi 9 (codename **cepheus**), built on
 OpenELA LTS **4.14.357** with **KernelSU-Next** built in and optional **SUSFS**.
 It comes in builds for Android 14/15 and Android 16 ROMs.
 
 The name is a blend of the two kernels this work grew out of:
-**REV**UELTO by balgxmr and Infini**R** by raystef66.
+**REV**UELTO by balgxmr and Infini**R** by raystef66. Up to version 1.0 it
+was released as REVENIR.
 
 **[Download the latest release](https://github.com/b3zib3zi/kernel_xiaomi_cepheus/releases)**
 
@@ -16,7 +17,7 @@ The name is a blend of the two kernels this work grew out of:
 
 ## What's new in 1.1
 
-REVENIR 1.1 is REVENIR 1.0 plus:
+reVeniR 1.1 is 1.0 plus:
 
 - **22 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
@@ -101,7 +102,7 @@ highest steps:
 | **Android 14 / 15** (e.g. crDroid 10, 11) | `revenir-1.1-a15` | `revenir-1.1-a15-susfs-2.1.0` | `revenir-1.1-a15-susfs-2.4.0` |
 | **Android 16** (e.g. crDroid 12) | `revenir-1.1-a16` | `revenir-1.1-a16-susfs-2.1.0` | `revenir-1.1-a16-susfs-2.4.0` |
 
-Each name is the source branch of that build. The sources of REVENIR 1.0 stay
+Each name is the source branch of that build. The sources of 1.0 stay
 in the branches without a version number (`revenir-a16`, `revenir-a15-susfs-2.4.0`
 and so on).
 
@@ -129,7 +130,7 @@ and so on).
 ## Installation
 
 1. Install **KernelSU-Next manager v3.4.2**. This is the manager for all
-   REVENIR builds.
+   reVeniR builds.
 2. Flash the zip in your recovery (OrangeFox, TWRP) or sideload it.
 3. Reboot.
 4. SUSFS builds only: install a susfs4ksu module that matches the SUSFS version
@@ -143,11 +144,11 @@ which manager v3.4.0 does not support.
 ## Display refresh rate (optional, not recommended)
 
 > ⛔ **Not recommended.** Every rate above 60 Hz overclocks the display panel
-> and runs it outside its specification. This can damage the panel. REVENIR
+> and runs it outside its specification. This can damage the panel. reVeniR
 > stays at the stock 60 Hz unless you turn this on, and we recommend leaving
 > it there. If you use it anyway, you do so at your own risk.
 
-REVENIR runs the display at the stock **60 Hz** by default. If you still want
+reVeniR runs the display at the stock **60 Hz** by default. If you still want
 a higher rate, you can set it when you flash the kernel. Nothing is changed in
 the dtbo, and going back to 60 Hz only takes another flash.
 
@@ -166,7 +167,7 @@ the dtbo, and going back to 60 Hz only takes another flash.
 for example:
 
 ```
-REVENIR-1.1-cepheus-A16-KSUN-3.4.2-20261125-69hz.zip
+reVeniR-1.1-cepheus-A16-KSUN-3.4.2-20261127-69hz.zip
 ```
 
 Allowed: `66hz`, `69hz`, `72hz`, `75hz`, `81hz`, `84hz`, `90hz` (or `69fps`
@@ -337,7 +338,7 @@ cd kernel_xiaomi_cepheus
 
 ## Credits
 
-REVENIR only exists because of the work of others. Thank you to:
+reVeniR only exists because of the work of others. Thank you to:
 
 - **balgxmr** for REVUELTO, the base of this tree
 - **raystef66** for InfiniR: the GPU frequency/voltage table and the SUSFS
