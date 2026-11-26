@@ -1,7 +1,7 @@
 #!/bin/bash
 # SPDX-License-Identifier: GPL-2.0
 #
-# REVENIR kernel build script - Xiaomi Mi 9 (cepheus)
+# reVeniR kernel build script - Xiaomi Mi 9 (cepheus)
 #
 # Usage: ./build.sh [clean]
 #
@@ -9,7 +9,7 @@
 #   apt install clang-19 lld-19 llvm-19 flex bison bc libssl-dev zip \
 #       binutils-aarch64-linux-gnu gcc-arm-linux-gnueabi
 #
-# The result is $ZIP_DIR/REVENIR-<ver>-cepheus-A16-KSUN-<ksun>-SUSFS-<susfs>-<date>.zip
+# The result is $ZIP_DIR/reVeniR-<ver>-cepheus-A16-KSUN-<ksun>-SUSFS-<susfs>-<date>.zip
 
 set -e
 
@@ -37,7 +37,7 @@ ZIP_DIR="${ZIP_DIR:-$KERNEL_DIR/..}"
 LLVM_BIN="${LLVM_BIN:-/usr/lib/llvm-19/bin}"
 
 BUILD_DATE="${BUILD_DATE:-$(date +%Y%m%d)}"
-ZIP_NAME="REVENIR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-SUSFS-${SUSFS_VER}-${BUILD_DATE}.zip"
+ZIP_NAME="reVeniR-${REVENIR_VER}-cepheus-${ANDROID_VER}-KSUN-${KSUN_VER}-SUSFS-${SUSFS_VER}-${BUILD_DATE}.zip"
 
 export PATH="$LLVM_BIN:$PATH"
 
@@ -51,7 +51,7 @@ MAKE_ARGS=(
 	CROSS_COMPILE=aarch64-linux-gnu-
 	CROSS_COMPILE_ARM32=arm-linux-gnueabi-
 	KBUILD_BUILD_USER="${KBUILD_BUILD_USER:-b3zi}"
-	KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-revenir}"
+	KBUILD_BUILD_HOST="${KBUILD_BUILD_HOST:-reVeniR}"
 	KSU_VERSION_OVERRIDE="$KSU_VERSION_OVERRIDE"
 	KSU_VERSION_TAG_OVERRIDE="$KSU_VERSION_TAG_OVERRIDE"
 )
