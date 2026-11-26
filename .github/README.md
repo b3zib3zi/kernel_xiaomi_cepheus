@@ -258,15 +258,26 @@ Please include:
 2. Your ROM and its version
 3. Your modules (SUSFS module, Zygisk, others)
 4. What happened and how often
-5. Logs taken right after the problem, if possible:
+5. Logs taken right after the problem, before you reboot. Please send the
+   full files, not only lines filtered for "error" or "fail": a GPU hang, for
+   example, contains neither word.
 
 ```sh
-su -c dmesg > /sdcard/dmesg.txt
-logcat -d > /sdcard/logcat.txt
+su -c 'dmesg > /sdcard/Download/dmesg.txt'
+su -c 'logcat -d > /sdcard/Download/logcat.txt'
 ```
 
-After an unexpected reboot, `/sys/fs/pstore/` may contain the log of the
-previous boot.
+Keep the quotes as shown. Without them only `dmesg` runs as root and your
+terminal app writes the file itself, which often fails on `/sdcard`.
+`logcat` without `su` only shows the logs of the terminal app.
+
+After an unexpected reboot, run this first, before you turn the phone off or
+reboot again. It holds the log of the previous boot (it is empty if the phone
+was switched off before):
+
+```sh
+su -c 'cat /proc/last_kmsg > /sdcard/Download/last_kmsg.txt'
+```
 
 ## Building from source
 
