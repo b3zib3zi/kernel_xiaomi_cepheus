@@ -25,6 +25,10 @@ reVeniR 1.1 is 1.0 plus:
   already in use.
 - **A GPU table without the unstable top steps.**
 - **Two fixes for false error messages** in the kernel log.
+- **A fix for apps that hung while saving to the internal storage**, for
+  example the MIUI camera when it saves a video.
+- **The stock defaults of the video encoder** again.
+- **The kernel version now says reVeniR** instead of REVENIR.
 
 Everything else stays as in 1.0: same KernelSU-Next, same SUSFS, same
 display options.
@@ -87,6 +91,34 @@ highest steps:
   looked for a second codec type, the WCD9360 ("Pahu"), which the Mi 9 does
   not have and whose driver is not built. It now only looks for it when that
   driver is enabled. The Mi 9's WCD934x ("Tavil") codec works as before.
+
+### Saving to the internal storage
+
+- **FUSE:** when an app overwrote part of an existing file on the internal
+  storage (`/sdcard`), the kernel kept a lock on that file. The next write to
+  it waited forever. The MIUI camera port on crDroid ran into this every
+  time it saved a video: the recording itself was complete, but the video
+  stayed a hidden `.pending` file, the camera could not be closed and only
+  started again after a reboot. The cause was a backport for parallel writes
+  that never released its lock. The code is back to the version LineageOS
+  and InfiniR use. 1.0 has the same bug.
+- Videos from earlier attempts may still be in `DCIM/Camera` as hidden
+  `.pending-…mp4` files.
+
+### Video encoder
+
+- **Video encoder (vidc):** the default values of the hardware encoder are
+  back to those of the Qualcomm and LineageOS kernel. REVUELTO had raised
+  them, for example to constant quality at the maximum, a 300 Mbit/s
+  bitrate and the low-latency real-time mode. Camera apps and Android's
+  media framework normally set these values themselves, so in most cases
+  nothing changes. Where they do not, the encoder now starts from the stock
+  values.
+
+### Kernel name
+
+- The kernel version (`uname -r`) now contains `reVeniR` instead of
+  `REVENIR`, and the zips are called `reVeniR-1.1-…`.
 
 ### README
 
@@ -261,6 +293,8 @@ adapted to the 4.14 code.
 - No debugfs, no tracing, no loadable modules, kallsyms off
 - Since 1.1: 22 security and stability fixes for the Qualcomm drivers, USB
   and the rt-mutex code (see [What's new in 1.1](#whats-new-in-11))
+- Since 1.1: writes into existing files on the internal storage no longer
+  hang (FUSE)
 
 ## Known limitations
 
