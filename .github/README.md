@@ -116,11 +116,15 @@ highest steps:
 
 ### Cleaner kernel log
 
-- **Charger driver (smb5):** after every wake-up the log showed
+- **USB thermal zone:** after every wake-up the log showed
   `failed to read out thermal zone (-61)`. The "usb" thermal zone asks for
   the temperature of a USB port thermistor that the Mi 9 does not have. The
-  driver now reports this in a way the thermal core skips silently. This fix
-  was added after the 1.0 release and ships for the first time in 1.1.
+  power supply core now passes the missing value to the thermal core in a
+  way it skips silently. The charger driver reports it as before. The first
+  1.1 build changed the charger driver instead. That stopped the change
+  notifications of the "usb" supply, so after unplugging, Android could
+  keep showing "charging" until the next change of the battery state. This
+  fix was added after the 1.0 release and ships for the first time in 1.1.
 - **Audio codec driver (wcd9xxx):** every boot logged
   `failed to get slimbus pahu-slim-pgd logical address: -6`. The kernel
   looked for a second codec type, the WCD9360 ("Pahu"), which the Mi 9 does
