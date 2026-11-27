@@ -19,10 +19,12 @@ was released as REVENIR.
 
 reVeniR 1.1 is 1.0 plus:
 
-- **23 security and stability fixes** for the Qualcomm drivers, USB and the
+- **28 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
   bulletins and are taken from the LineageOS sm8150 kernel, where they are
-  already in use.
+  already in use. Among them is the fix for **CVE-2024-43047** in the DSP
+  driver (FastRPC), a hole that has been used in targeted attacks. 1.0 does
+  not have it.
 - **Two more hardening fixes in the NPU driver.**
 - **A GPU table without the unstable top steps.**
 - **Two fixes for false error messages** in the kernel log.
@@ -38,10 +40,18 @@ display options.
 
 - **GPU (kgsl):** use-after-free when an ION buffer is released; wrong buffer
   alignment caused by sign extension of the alignment value; error handling
-  when switching draw contexts
+  when switching draw contexts, and a correction of that fix: a failed
+  switch no longer counts as successful once the old pagetable is restored,
+  so the commands of a context can no longer run with the pagetable of the
+  previous one
 - **DSP / FastRPC (adsprpc):** use-after-free in the global map list; DMA
   handle maps left behind after an error; buffer allocated one byte short of
-  the terminating NULL; attribute and flag checks when a map is created
+  the terminating NULL; attribute and flag checks when a map is created;
+  DMA handle maps are only freed when the DSP really holds them, so a
+  process can no longer free a map that is still in use (CVE-2024-43047).
+  Two corrections of the global map fix: the cleanup after a DSP restart
+  can no longer wait forever on a lock it already holds, and a request for
+  DSP heap memory can no longer put an existing map on a second list
 - **NPU:** two use-after-free fixes; a size check of the execute response the
   firmware sends back; checks of the message queues shared with the
   firmware and of the size of every message read from them
@@ -49,7 +59,9 @@ display options.
   be larger than the buffer it is copied into, and the older execute call
   is now covered by the protection against unloading a network while it
   runs, as the newer one already was
-- **Video (vidc):** use-after-free when buffers are unregistered
+- **Video (vidc):** use-after-free when buffers are unregistered, and the
+  follow-up fix that releases the buffer lock again when an unknown buffer
+  is unregistered
 - **Secure channel (smcinvoke):** the reference count of server objects is
   dropped under the mutex
 - **WLAN:** out-of-bounds read when the RNR element of a beacon is parsed
@@ -297,8 +309,9 @@ adapted to the 4.14 code.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
-- Since 1.1: 23 security and stability fixes for the Qualcomm drivers, USB
-  and the rt-mutex code, plus two hardening fixes in the NPU driver (see
+- Since 1.1: 28 security and stability fixes for the Qualcomm drivers, USB
+  and the rt-mutex code, including CVE-2024-43047 in the DSP driver, plus
+  two hardening fixes in the NPU driver (see
   [What's new in 1.1](#whats-new-in-11))
 - Since 1.1: writes into existing files on the internal storage no longer
   hang (FUSE)
