@@ -963,11 +963,17 @@ int adreno_iommu_set_pt_ctx(struct adreno_ringbuffer *rb,
 	 * hardware state in the ringbuffer.
 	 */
 	if (result && (new_pt != cur_pt)) {
+		int ret;
+
 		if (cpu_path)
-			result = _set_pagetable_cpu(rb, cur_pt);
+			ret = _set_pagetable_cpu(rb, cur_pt);
 		else
-			result = _set_pagetable_gpu(rb, cur_pt);
+			ret = _set_pagetable_gpu(rb, cur_pt);
+		if (ret)
+			KGSL_DRV_ERR_RATELIMIT(device,
+				"Error restoring pagetable %d\n", ret);
 	}
 
+	/* A failed switch must not be reported as done, even after rollback */
 	return result;
 }
