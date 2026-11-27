@@ -841,7 +841,10 @@ static int fastrpc_mmap_create(struct fastrpc_file *fl, int fd,
 		goto bail;
 	}
 	chan = &apps->channel[cid];
-	if (!fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
+	/* Heap maps are allocated here and are never on a file's map list */
+	if (mflags != ADSP_MMAP_HEAP_ADDR &&
+	    mflags != ADSP_MMAP_REMOTE_HEAP_ADDR &&
+	    !fastrpc_mmap_find(fl, fd, va, len, mflags, 1, ppmap))
 		return 0;
 	map = kzalloc(sizeof(*map), GFP_KERNEL);
 	VERIFY(err, !IS_ERR_OR_NULL(map));
