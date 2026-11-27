@@ -355,7 +355,7 @@ static int qpnp_lut_sdam_write(struct qpnp_lpg_lut *lut,
 	struct qpnp_lpg_chip *chip = lut->chip;
 	int rc;
 
-	if (addr >= SDAM_LUT_COUNT_MAX)
+	if (addr >= SDAM_LUT_COUNT_MAX || length > SDAM_LUT_COUNT_MAX - addr)
 		return -EINVAL;
 
 	mutex_lock(&chip->bus_lock);
@@ -651,6 +651,12 @@ static int qpnp_lpg_set_lut_pattern(struct qpnp_lpg_channel *lpg,
 	if (length > lpg->max_pattern_length) {
 		dev_err(lpg->chip->dev, "new pattern length (%d) larger than predefined (%d)\n",
 				length, lpg->max_pattern_length);
+		return -EINVAL;
+	}
+
+	if (lpg->ramp_config.lo_idx + length > LPG_LUT_COUNT_MAX) {
+		dev_err(lpg->chip->dev, "pattern of length %d at index %d does not fit in the LUT\n",
+				length, lpg->ramp_config.lo_idx);
 		return -EINVAL;
 	}
 
