@@ -59,6 +59,11 @@ if [ ! -f KernelSU-Next/kernel/Kbuild ]; then
 	git clone https://github.com/KernelSU-Next/KernelSU-Next.git KernelSU-Next
 	git -C KernelSU-Next checkout -q "$KSU_COMMIT"
 fi
+# An existing checkout is reused, so make sure it is the expected commit
+if [ "$(git -C KernelSU-Next rev-parse HEAD 2>/dev/null)" != "$KSU_COMMIT" ]; then
+	echo "KernelSU-Next is not at $KSU_COMMIT; remove KernelSU-Next/ and run again"
+	exit 1
+fi
 if [ "$1" = "clean" ]; then
 	rm -rf "$OUT_DIR"
 fi
