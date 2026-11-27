@@ -726,6 +726,13 @@ static int power_supply_read_temp(struct thermal_zone_device *tzd,
 	WARN_ON(tzd == NULL);
 	psy = tzd->devdata;
 	ret = power_supply_get_property(psy, POWER_SUPPLY_PROP_TEMP, &val);
+	/*
+	 * A supply without a temperature source reports -ENODATA, which
+	 * sysfs and the uevent code skip. The thermal core would log it on
+	 * every update, so pass it on as -EAGAIN, which it skips silently.
+	 */
+	if (ret == -ENODATA)
+		return -EAGAIN;
 	if (ret)
 		return ret;
 
