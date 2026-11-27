@@ -994,22 +994,25 @@ static int msm_pcm_capture_copy(struct snd_pcm_substream *substream,
 	pr_debug("fbytes = %lu\n", fbytes);
 	pr_debug("idx = %d\n", idx);
 	if (bufptr) {
+		uint32_t bufsz = prtd->audio_client->port[OUT].buf[idx].size;
+
 		xfer = fbytes;
 		if (xfer > size)
 			xfer = size;
 		offset = prtd->in_frame_info[idx].offset;
 		pr_debug("Offset value = %d\n", offset);
 
-		if (offset >= size) {
-			pr_err("%s: Invalid dsp buf offset\n", __func__);
+		/*
+		 * The DSP reports the payload size and the offset of its first
+		 * byte; the payload has to lie inside the buffer it was read to.
+		 */
+		if (!size || offset > bufsz || size > bufsz - offset) {
+			pr_err("%s: Invalid dsp buf offset %u size %u\n",
+				__func__, offset, size);
 			ret = -EFAULT;
 			q6asm_cpu_buf_release(OUT, prtd->audio_client);
 			goto fail;
 		}
-
-		/* only copy what is left of the buffer after the offset */
-		if (xfer > size - offset)
-			xfer = size - offset;
 
 		if (copy_to_user(buf, bufptr+offset, xfer)) {
 			pr_err("Failed to copy buf to user\n");
