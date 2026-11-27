@@ -19,7 +19,7 @@ was released as REVENIR.
 
 reVeniR 1.1 is 1.0 plus:
 
-- **34 security and stability fixes** for the Qualcomm drivers, USB and the
+- **35 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
   bulletins and are taken from the LineageOS sm8150 kernel, where they are
   already in use. Among them is the fix for **CVE-2024-43047** in the DSP
@@ -86,8 +86,15 @@ display options.
   verified, and in the LED pattern helpers; the LED pattern helpers are now
   declared with their real types, so their errors reach the caller; and a
   LED pattern can no longer be written past the end of the pattern memory
-- **Kernel (rt-mutex):** two fixes in the error path of priority-inheritance
-  locking (PI futexes) that could corrupt the waiter list and crash the kernel
+- **Kernel:**
+  - rt-mutex: two fixes in the error path of priority-inheritance locking
+    (PI futexes) that could corrupt the waiter list and crash the kernel
+  - timers: when battery protection (BCL) or thermal throttling parks a CPU
+    under load, the kernel moves that CPU's timers to another one. This step
+    re-enabled softirqs while interrupts were disabled, which is not
+    allowed: it printed a kernel warning and could run pending softirqs
+    with interrupts on where they must stay off. The fix is Qualcomm's own,
+    from its 4.19 kernel. 1.0 has the same bug
 
 ### GPU table
 
@@ -319,8 +326,8 @@ adapted to the 4.14 code.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
-- Since 1.1: 34 security and stability fixes for the Qualcomm drivers, USB
-  and the rt-mutex code, including CVE-2024-43047 in the DSP driver, plus
+- Since 1.1: 35 security and stability fixes for the Qualcomm drivers, USB
+  and the kernel core, including CVE-2024-43047 in the DSP driver, plus
   four hardening fixes in the NPU driver (see
   [What's new in 1.1](#whats-new-in-11))
 - Since 1.1: writes into existing files on the internal storage no longer
