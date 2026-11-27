@@ -1341,6 +1341,11 @@ int32_t npu_host_get_fw_property(struct npu_device *npu_dev,
 	for (i = 0; i < num_of_params; i++)
 		prop_packet->prop_param[i] = property->prop_param[i];
 
+	/* Only the reply to this request may fill in the values */
+	mutex_lock(&host_ctx->lock);
+	memset(host_ctx->prop_buf, 0, sizeof(struct msm_npu_property));
+	mutex_unlock(&host_ctx->lock);
+
 	reinit_completion(&host_ctx->property_done);
 	ret = npu_send_misc_cmd(npu_dev, IPC_QUEUE_APPS_EXEC,
 		prop_packet);
