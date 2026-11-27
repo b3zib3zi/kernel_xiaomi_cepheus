@@ -24,6 +24,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/pwm-qti-lpg.h>
 #include <linux/qpnp/qpnp-pbs.h>
 #include <linux/regmap.h>
 #include <linux/slab.h>
@@ -424,7 +425,7 @@ void qpnp_lpg_pause_lo_count_set(struct pwm_device *pwm, u8 pause_lo_count)
 }
 EXPORT_SYMBOL(qpnp_lpg_pause_lo_count_set);
 
-u8 qpnp_lpg_pause_lo_count_get(struct pwm_device *pwm)
+int qpnp_lpg_pause_lo_count_get(struct pwm_device *pwm)
 {
 	struct qpnp_lpg_channel *channel = NULL;
 
@@ -781,7 +782,7 @@ static int qpnp_lpg_set_ramp_config(struct qpnp_lpg_channel *lpg)
 	return rc;
 }
 
-u8 qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index)
+int qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index)
 {
 	struct qpnp_lpg_channel *channel = NULL;
 	struct qpnp_lpg_lut *lut = NULL;
@@ -821,7 +822,7 @@ u8 qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index)
 }
 EXPORT_SYMBOL(qpnp_lpg_switch_lut_pattern);
 
-u8 qpnp_lpg_lo_idx_get(struct pwm_device *pwm)
+int qpnp_lpg_lo_idx_get(struct pwm_device *pwm)
 {
 	struct qpnp_lpg_channel *channel = NULL;
 
@@ -835,7 +836,7 @@ u8 qpnp_lpg_lo_idx_get(struct pwm_device *pwm)
 }
 EXPORT_SYMBOL(qpnp_lpg_lo_idx_get);
 
-u8 qpnp_lpg_lo_idx_set(struct pwm_device *pwm, int lo_idx)
+int qpnp_lpg_lo_idx_set(struct pwm_device *pwm, int lo_idx)
 {
 	struct qpnp_lpg_channel *channel = NULL;
 	struct qpnp_lpg_lut *lut = NULL;

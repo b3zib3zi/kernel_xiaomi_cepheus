@@ -23,6 +23,7 @@
 #include <linux/of_address.h>
 #include <linux/platform_device.h>
 #include <linux/pwm.h>
+#include <linux/pwm-qti-lpg.h>
 #include <linux/regmap.h>
 #include <linux/types.h>
 
@@ -411,9 +412,6 @@ static const struct attribute *breath_attrs[] = {
 	NULL
 };
 
-extern int qpnp_lpg_ramp_step_ms_get(struct pwm_device *pwm);
-extern int qpnp_lpg_ramp_step_ms_set(struct pwm_device *pwm, u16 step_ms);
-
 static ssize_t step_ms_show(struct device *dev, struct device_attribute *attr,
 							char *buf)
 {
@@ -455,9 +453,6 @@ static const struct attribute *step_ms_attrs[] = {
 	&dev_attr_step_ms.attr,
 	NULL
 };
-
-extern int qpnp_lpg_pause_lo_count_get(struct pwm_device *pwm);
-extern int qpnp_lpg_pause_lo_count_set(struct pwm_device *pwm, u8 pause_lo_count);
 
 static ssize_t pause_lo_count_show(struct device *dev, struct device_attribute *attr,
 							char *buf)
@@ -501,9 +496,6 @@ static const struct attribute *pause_lo_count_attrs[] = {
 	NULL
 };
 
-extern int qpnp_lpg_lo_idx_get(struct pwm_device *pwm);
-extern int qpnp_lpg_lo_idx_set(struct pwm_device *pwm, u8 lo_idx);
-
 static ssize_t lo_idx_show(struct device *dev, struct device_attribute *attr,
 							char *buf)
 {
@@ -534,7 +526,7 @@ static ssize_t lo_idx_store(struct device *dev, struct device_attribute *attr,
 	mutex_lock(&led->lock);
 
 	pr_debug("%s: lo_idx set to %d\n", led->cdev.name, lo_idx);
-	qpnp_lpg_lo_idx_set(led->pwm_dev, lo_idx);
+	rc = qpnp_lpg_lo_idx_set(led->pwm_dev, lo_idx);
 
 	mutex_unlock(&led->lock);
 	return (rc < 0) ? rc : count;
@@ -545,8 +537,6 @@ static const struct attribute *lo_idx_attrs[] = {
 	&dev_attr_lo_idx.attr,
 	NULL
 };
-
-extern u8 qpnp_lpg_switch_lut_pattern(struct pwm_device *pwm, int index);
 
 static ssize_t lut_pattern_store(struct device *dev, struct device_attribute *attr,
 						const char *buf, size_t count)
@@ -564,7 +554,7 @@ static ssize_t lut_pattern_store(struct device *dev, struct device_attribute *at
 	mutex_lock(&led->lock);
 
 	pr_debug("%s: lut_pattern switch to %d\n", led->cdev.name, lut_pattern_index);
-	qpnp_lpg_switch_lut_pattern(led->pwm_dev, lut_pattern_index);
+	rc = qpnp_lpg_switch_lut_pattern(led->pwm_dev, lut_pattern_index);
 
 	mutex_unlock(&led->lock);
 	return (rc < 0) ? rc : count;
