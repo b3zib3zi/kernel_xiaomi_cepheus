@@ -921,7 +921,14 @@ static void app_msg_proc(struct npu_host_ctx *host_ctx, uint32_t *msg)
 			/* Copy prop data to kernel buffer */
 			prop_size = prop_rsp_pkt->header.size -
 				sizeof(struct ipc_msg_header_pkt);
-			memcpy(host_ctx->prop_buf, prop_data, prop_size);
+			if (prop_size > sizeof(struct msm_npu_property)) {
+				pr_err("Invalid rsp pkt size %d\n",
+					prop_rsp_pkt->header.size);
+				host_ctx->cmd_ret_status = -EINVAL;
+			} else {
+				memcpy(host_ctx->prop_buf, prop_data,
+					prop_size);
+			}
 		}
 
 		complete_all(&host_ctx->property_done);
