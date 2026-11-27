@@ -66,8 +66,6 @@
 #define CIRRUS_RX_GET_IODATA 0x00A1AF09
 #define CIRRUS_TX_GET_IODATA 0x00A1BF09
 
-static struct crus_sp_ioctl_header crus_sp_hdr;
-
 static struct crus_control_t this_ctrl = {
 	.fb_port_index = 3,
 	.fb_port = AFE_PORT_ID_QUATERNARY_MI2S_TX,
@@ -1159,6 +1157,7 @@ static long crus_sp_shared_ioctl(struct file *f, unsigned int cmd,
 	int result = 0, port;
 	uint32_t bufsize = 0, size;
 	void *io_data = NULL;
+	struct crus_sp_ioctl_header crus_sp_hdr = {0};
 
 	pr_info("%s\n", __func__);
 
@@ -1167,6 +1166,10 @@ static long crus_sp_shared_ioctl(struct file *f, unsigned int cmd,
 		result = -EFAULT;
 		goto exit;
 	}
+
+	/* The header has a fixed size, never copy more than that */
+	if (size > sizeof(crus_sp_hdr))
+		size = sizeof(crus_sp_hdr);
 
 	/* Copy IOCTL header from usermode */
 	if (copy_from_user(&crus_sp_hdr, arg, size)) {
@@ -1177,6 +1180,10 @@ static long crus_sp_shared_ioctl(struct file *f, unsigned int cmd,
 
 	bufsize = crus_sp_hdr.data_length;
 	io_data = kzalloc(bufsize, GFP_KERNEL);
+	if (!io_data) {
+		result = -ENOMEM;
+		goto exit;
+	}
 
 	switch (cmd) {
 	case CRUS_SP_IOCTL_GET:
