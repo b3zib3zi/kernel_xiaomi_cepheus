@@ -19,10 +19,11 @@ was released as REVENIR.
 
 reVeniR 1.1 is 1.0 plus:
 
-- **22 security and stability fixes** for the Qualcomm drivers, USB and the
+- **23 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
   bulletins and are taken from the LineageOS sm8150 kernel, where they are
   already in use.
+- **Two more hardening fixes in the NPU driver.**
 - **A GPU table without the unstable top steps.**
 - **Two fixes for false error messages** in the kernel log.
 - **A fix for apps that hung while saving to the internal storage**, for
@@ -42,7 +43,12 @@ display options.
   handle maps left behind after an error; buffer allocated one byte short of
   the terminating NULL; attribute and flag checks when a map is created
 - **NPU:** two use-after-free fixes; a size check of the execute response the
-  firmware sends back
+  firmware sends back; checks of the message queues shared with the
+  firmware and of the size of every message read from them
+- **NPU, our own additions:** the reply to a property request can no longer
+  be larger than the buffer it is copied into, and the older execute call
+  is now covered by the protection against unloading a network while it
+  runs, as the newer one already was
 - **Video (vidc):** use-after-free when buffers are unregistered
 - **Secure channel (smcinvoke):** the reference count of server objects is
   dropped under the mutex
@@ -291,8 +297,9 @@ adapted to the 4.14 code.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
-- Since 1.1: 22 security and stability fixes for the Qualcomm drivers, USB
-  and the rt-mutex code (see [What's new in 1.1](#whats-new-in-11))
+- Since 1.1: 23 security and stability fixes for the Qualcomm drivers, USB
+  and the rt-mutex code, plus two hardening fixes in the NPU driver (see
+  [What's new in 1.1](#whats-new-in-11))
 - Since 1.1: writes into existing files on the internal storage no longer
   hang (FUSE)
 
@@ -363,7 +370,9 @@ cd kernel_xiaomi_cepheus
 ```
 
 - The script fetches the matching KernelSU-Next commit. On SUSFS branches it
-  also applies `KernelSU-Next-susfs-<version>-uapi5.patch`.
+  also applies `KernelSU-Next-susfs-<version>-uapi5.patch`. If a
+  `KernelSU-Next/` folder already exists at another commit, the script stops
+  and asks you to remove it.
 - Set `ANYKERNEL_DIR` to an AnyKernel3 template to get a flashable zip;
   without it you get `out/arch/arm64/boot/Image.gz-dtb`.
 - `/proc/config.gz` on the phone contains a fixed stock-style configuration,
