@@ -208,7 +208,7 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 {
 	int status = 0;
 	struct hfi_queue_header queue;
-	uint32_t packet_size, new_read_idx;
+	uint32_t packet_size, new_read_idx, unread;
 	size_t read_ptr;
 	size_t offset = 0;
 
@@ -262,6 +262,19 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 		status = -EINVAL;
 		goto exit;
 	}
+
+	/* The packet must not reach past what the firmware has written */
+	if (queue.qhdr_write_idx >= queue.qhdr_read_idx)
+		unread = queue.qhdr_write_idx - queue.qhdr_read_idx;
+	else
+		unread = queue.qhdr_q_size - queue.qhdr_read_idx +
+			queue.qhdr_write_idx;
+	if (packet_size > unread) {
+		pr_err("Packet size %d exceeds the %d unread bytes\n",
+			packet_size, unread);
+		status = -EINVAL;
+		goto exit;
+	}
 	new_read_idx = queue.qhdr_read_idx + packet_size;
 
 	if (new_read_idx < (queue.qhdr_q_size)) {
@@ -277,6 +290,12 @@ static int ipc_queue_read(struct npu_device *npu_dev,
 			(void *)((size_t)packet + (packet_size-new_read_idx)),
 			new_read_idx);
 	}
+
+	/*
+	 * The copy read the size word again; give the consumers the size
+	 * that was checked above.
+	 */
+	*((uint32_t *)packet) = packet_size;
 
 	queue.qhdr_read_idx = new_read_idx;
 
