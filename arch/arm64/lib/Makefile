@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0
-ccflags-y += -O3
+ccflags-y += -O2
 ccflags-y += -mllvm -inline-threshold=15000
 ccflags-y += -mllvm -inlinehint-threshold=10000
 lib-y		:= checksum.o clear_user.o delay.o copy_from_user.o	\
