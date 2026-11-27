@@ -32,6 +32,7 @@
 
 /* includes copy_user vice versa */
 #include <linux/spinlock.h>
+#include <linux/sizes.h>
 #include <linux/slab.h>
 #include <linux/stat.h>
 #include <linux/init.h>
@@ -77,6 +78,24 @@ static struct crus_control_t this_ctrl = {
 	.prot_en = false,
 	.q6afe_rev = 3, // V3 as default
 };
+
+/*
+ * crus_afe_callback() writes a reply into this_ctrl.user_buffer. The lock
+ * keeps it from writing into a buffer that the requester has given up
+ * after a timeout, and the size keeps it inside the buffer.
+ */
+static DEFINE_SPINLOCK(crus_reply_lock);
+static size_t crus_reply_size;
+
+static void crus_set_reply_buffer(int32_t *buf, size_t size)
+{
+	unsigned long flags;
+
+	spin_lock_irqsave(&crus_reply_lock, flags);
+	this_ctrl.user_buffer = buf;
+	crus_reply_size = size;
+	spin_unlock_irqrestore(&crus_reply_lock, flags);
+}
 
 
 static void *crus_gen_afe_get_header(int length, int port, int module,
@@ -184,9 +203,16 @@ static int crus_afe_get_param(int port, int module, int param, int length,
 	struct afe_custom_crus_get_config_v2_t *config = NULL;
 	int index = afe_get_port_index(port);
 	int ret = 0, count = 0;
+	int32_t *buf;
+	size_t buf_size;
 
 	pr_info("CRUS_SP: (get_param) module = 0x%08x, port = 0x%08x, param = 0x%08x\n",
 		module, port, param);
+
+	/* The payload size of the request is a u16 */
+	if (length < 0 ||
+	    length > (int)(U16_MAX - sizeof(struct param_hdr_v2)))
+		return -EINVAL;
 
 	config = (struct afe_custom_crus_get_config_v2_t *)
 		 crus_gen_afe_get_header(length, port, module, param);
@@ -195,11 +221,16 @@ static int crus_afe_get_param(int port, int module, int param, int length,
 		return -ENOMEM;
 	}
 
+	buf_size = config->param.payload_size + 16;
+	buf = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf) {
+		kfree(config);
+		return -ENOMEM;
+	}
+
 	mutex_lock(&this_ctrl.param_lock);
 	atomic_set(&this_ctrl.callback_wait, 0);
-
-	this_ctrl.user_buffer = kzalloc(config->param.payload_size + 16,
-				     GFP_KERNEL);
+	crus_set_reply_buffer(buf, buf_size);
 
 	ret = afe_apr_send_pkt_crus(config, index, 0);
 	if (ret)
@@ -216,11 +247,15 @@ static int crus_afe_get_param(int port, int module, int param, int length,
 		}
 	}
 
+	/* A reply that arrives from now on is dropped */
+	crus_set_reply_buffer(NULL, 0);
+
 	/* Copy from dynamic buffer to return buffer */
-	memcpy((u8 *)data, &this_ctrl.user_buffer[4], length);
+	memcpy((u8 *)data, &buf[4], length);
 
 exit:
-	kfree(this_ctrl.user_buffer);
+	crus_set_reply_buffer(NULL, 0);
+	kfree(buf);
 	mutex_unlock(&this_ctrl.param_lock);
 	kfree(config);
 	return ret;
@@ -264,7 +299,9 @@ static int crus_afe_get_param_v3(int port, int module_id,
 	struct param_hdr_v3 param_hdr;
     u16 port_id = 0;
     int index = 0;
-	int ret = 0;
+	int ret = 0, count = 0;
+	int32_t *buf;
+	size_t buf_size;
 
 	pr_info("%s: port=0x%x, module=0x%x, param_id=0x%x, size=%d\n",
 				__func__, port, module_id, param_id, length);
@@ -300,10 +337,17 @@ static int crus_afe_get_param_v3(int port, int module_id,
 	afe_get_param.param_hdr = param_hdr;
 	//q6afe_get_params_v3 end
 
+	/* The reply buffer below holds the reply header plus the data */
+	if (length > SZ_64K)
+		return -EINVAL;
+	buf_size = length + 64;
+	buf = kzalloc(buf_size, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
 	mutex_lock(&this_ctrl.param_lock);
 	atomic_set(&this_ctrl.callback_wait, 0);
-	this_ctrl.user_buffer = kzalloc(length + 64,
-								GFP_KERNEL);
+	crus_set_reply_buffer(buf, buf_size);
     atomic_set(cspl_afe.status, 0);
 	ret = apr_send_pkt(*cspl_afe.apr, (uint32_t *) &afe_get_param);
 	if (ret < 0) {
@@ -311,25 +355,29 @@ static int crus_afe_get_param_v3(int port, int module_id,
 			   __func__, port, param_id);
 		goto fail_cmd;
 	}
-	/* Wait for afe callback to populate data */
-	while(!atomic_read(&this_ctrl.callback_wait))
+	/* Wait for afe callback to populate data, but not forever */
+	while (!atomic_read(&this_ctrl.callback_wait)) {
 		msleep(1);
+		if (count++ >= 1000) {
+			pr_err("%s: AFE callback timeout\n", __func__);
+			ret = -ETIMEDOUT;
+			goto fail_cmd;
+		}
+	}
 
-#if 0
-	for (index = 0; index < length; index ++)
-		pr_info("[%d]=%d\n", index, this_ctrl.user_buffer[index]);
+	/* A reply that arrives from now on is dropped */
+	crus_set_reply_buffer(NULL, 0);
 
-	pr_info("[5]=%s\n", &this_ctrl.user_buffer[5]);
-#endif
 	/* copy from dynamic buffer to return buffer */
-	memcpy((u8*)data, &this_ctrl.user_buffer[5], length);
+	memcpy((u8*)data, &buf[5], length);
 	pr_info("%s: Copied %d bytes data \n", __func__, length);
 
 	ret = 0;
 fail_cmd:
+	crus_set_reply_buffer(NULL, 0);
 	pr_info("%s: param_id %x status %d\n", __func__, param_id, ret);
 	mutex_unlock(&this_ctrl.param_lock);
-	kfree(this_ctrl.user_buffer);
+	kfree(buf);
 	return ret;
 }
 
@@ -567,14 +615,21 @@ static int crus_afe_send_delta(const char *data, uint32_t length)
 extern int crus_afe_callback(void* payload, int size)
 {
 	uint32_t* payload32 = payload;
+	unsigned long flags;
 
 	pr_debug("%s: module=0x%x size = %d\n",
 			__func__, (int)payload32[1], size);
 
 	switch(payload32[1]) {
 	case CIRRUS_SP:
-		memcpy(this_ctrl.user_buffer, payload32, size);
-		atomic_set(&this_ctrl.callback_wait, 1);
+		/* Only into the buffer of a pending request, and not past it */
+		spin_lock_irqsave(&crus_reply_lock, flags);
+		if (this_ctrl.user_buffer && size > 0) {
+			memcpy(this_ctrl.user_buffer, payload32,
+			       min_t(size_t, size, crus_reply_size));
+			atomic_set(&this_ctrl.callback_wait, 1);
+		}
+		spin_unlock_irqrestore(&crus_reply_lock, flags);
 		break;
 	default:
 		return -EINVAL;
