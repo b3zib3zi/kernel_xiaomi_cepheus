@@ -1764,6 +1764,12 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		goto exec_done;
 	}
 
+	if (network->is_executing) {
+		pr_err("network is already in execution\n");
+		ret = -EINVAL;
+		goto exec_done;
+	}
+
 	if (network->fw_error) {
 		pr_err("fw is in error state\n");
 		ret = -EIO;
@@ -1806,13 +1812,15 @@ int32_t npu_host_exec_network(struct npu_client *client,
 	exec_packet.header.flags = 0xF;
 	exec_packet.network_hdl = network->network_hdl;
 
+	network->is_executing = true;
+
 	/* Send it on the high priority queue */
 	reinit_completion(&network->cmd_done);
 	ret = npu_send_network_cmd(npu_dev, network, &exec_packet);
 
 	if (ret) {
 		pr_err("NPU_IPC_CMD_EXECUTE sent failed: %d\n", ret);
-		goto exec_done;
+		goto exec_clear;
 	}
 
 	mutex_unlock(&host_ctx->lock);
@@ -1829,7 +1837,7 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		npu_dump_debug_timeout_stats(npu_dev);
 		network->cmd_pending = false;
 		ret = -ETIMEDOUT;
-		goto exec_done;
+		goto exec_clear;
 	}
 
 	if (network->fw_error) {
@@ -1840,6 +1848,8 @@ int32_t npu_host_exec_network(struct npu_client *client,
 		pr_debug("execution status %d\n", ret);
 	}
 
+exec_clear:
+	network->is_executing = false;
 exec_done:
 	network_put(network);
 	mutex_unlock(&host_ctx->lock);
