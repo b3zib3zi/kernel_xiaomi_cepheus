@@ -1169,15 +1169,6 @@ static int smb5_usb_get_prop(struct power_supply *psy,
 		val->intval = get_effective_result(chg->usb_icl_votable);
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-		/*
-		 * Without a USB port thermistor in the device tree (cepheus has
-		 * none) the read can never succeed. Report -EAGAIN instead of
-		 * -ENODATA, so the "usb" thermal zone of the power supply core
-		 * does not log "failed to read out thermal zone (-61)" after
-		 * every resume.
-		 */
-		if (!chg->usb_port_tz_name)
-			return -EAGAIN;
 		rc = smblib_get_prop_usb_port_temp(chg, val);
 		break;
 	case POWER_SUPPLY_PROP_TYPE:
