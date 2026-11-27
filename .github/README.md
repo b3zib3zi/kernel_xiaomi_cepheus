@@ -19,13 +19,13 @@ was released as REVENIR.
 
 reVeniR 1.1 is 1.0 plus:
 
-- **28 security and stability fixes** for the Qualcomm drivers, USB and the
+- **34 security and stability fixes** for the Qualcomm drivers, USB and the
   kernel core. Most of them close holes listed in Qualcomm's security
   bulletins and are taken from the LineageOS sm8150 kernel, where they are
   already in use. Among them is the fix for **CVE-2024-43047** in the DSP
   driver (FastRPC), a hole that has been used in targeted attacks. 1.0 does
   not have it.
-- **Two more hardening fixes in the NPU driver.**
+- **Four more hardening fixes in the NPU driver.**
 - **A GPU table without the unstable top steps.**
 - **Two fixes for false error messages** in the kernel log.
 - **A fix for apps that hung while saving to the internal storage**, for
@@ -56,26 +56,36 @@ display options.
   firmware sends back; checks of the message queues shared with the
   firmware and of the size of every message read from them
 - **NPU, our own additions:** the reply to a property request can no longer
-  be larger than the buffer it is copied into, and the older execute call
-  is now covered by the protection against unloading a network while it
-  runs, as the newer one already was
+  be larger than the buffer it is copied into, and a property request can
+  no longer return values left over from an older reply; a message from the
+  firmware can no longer be longer than what the firmware has written into
+  the queue; and the older execute call is now covered by the protection
+  against unloading a network while it runs, as the newer one already was
 - **Video (vidc):** use-after-free when buffers are unregistered, and the
   follow-up fix that releases the buffer lock again when an unknown buffer
-  is unregistered
+  is unregistered; buffer entries are allocated as in the Qualcomm kernel
+  again, because the shared cache for them could be destroyed while another
+  video session still used it
 - **Secure channel (smcinvoke):** the reference count of server objects is
   dropped under the mutex
 - **WLAN:** out-of-bounds read when the RNR element of a beacon is parsed
 - **Audio:**
   - length check in the voice host PCM copy (buffer overflow), which also
     releases its lock and the buffer again when it rejects a packet
-  - size checks of DSP replies in the AFE driver
+  - size checks of DSP replies in the AFE driver, now also for the
+    parameter header that is read first
   - the module count the DSP reports to the ADM driver is treated as
     unsigned, so a negative value no longer slips past the size check
-  - the PCM capture copy checks the offset the DSP reports and stays inside
-    the DSP buffer
+  - the PCM capture copy checks that the frame the DSP reports lies inside
+    its buffer, and copies it in full
+  - Cirrus speaker amplifier driver: an ioctl header can no longer overwrite
+    driver data, a reply that comes after a timeout no longer lands in freed
+    memory, and a request no longer waits forever for the DSP
 - **USB and LED drivers:** three values that could be used uninitialised: in
   the USB gadget log, in USB-PD voltage selection while the charger is being
-  verified, and in the LED pattern helpers
+  verified, and in the LED pattern helpers; the LED pattern helpers are now
+  declared with their real types, so their errors reach the caller; and a
+  LED pattern can no longer be written past the end of the pattern memory
 - **Kernel (rt-mutex):** two fixes in the error path of priority-inheritance
   locking (PI futexes) that could corrupt the waiter list and crash the kernel
 
@@ -309,9 +319,9 @@ adapted to the 4.14 code.
 - Thermal driver: fewer lookups per poll, same throttling behaviour
 - SLAB freelist randomization and hardening, SYN cookies, restricted perf events
 - No debugfs, no tracing, no loadable modules, kallsyms off
-- Since 1.1: 28 security and stability fixes for the Qualcomm drivers, USB
+- Since 1.1: 34 security and stability fixes for the Qualcomm drivers, USB
   and the rt-mutex code, including CVE-2024-43047 in the DSP driver, plus
-  two hardening fixes in the NPU driver (see
+  four hardening fixes in the NPU driver (see
   [What's new in 1.1](#whats-new-in-11))
 - Since 1.1: writes into existing files on the internal storage no longer
   hang (FUSE)
@@ -386,6 +396,10 @@ cd kernel_xiaomi_cepheus
   also applies `KernelSU-Next-susfs-<version>-uapi5.patch`. If a
   `KernelSU-Next/` folder already exists at another commit, the script stops
   and asks you to remove it.
+- The script builds SELinux and KernelSU-Next before the rest of the kernel.
+  KernelSU-Next edits a few kernel files when it is built; this way the
+  whole kernel is compiled against the edited files, as in the release
+  builds.
 - Set `ANYKERNEL_DIR` to an AnyKernel3 template to get a flashable zip;
   without it you get `out/arch/arm64/boot/Image.gz-dtb`.
 - `/proc/config.gz` on the phone contains a fixed stock-style configuration,
