@@ -82,6 +82,10 @@ fi
 START=$(date +%s)
 
 make "${MAKE_ARGS[@]}" "$DEFCONFIG"
+# The KernelSU-Next Kbuild changes seccomp.h and a few SELinux files when
+# it is built. Build those parts first, so that the rest of the kernel is
+# compiled against the changed files and not partly against the old ones.
+make "${MAKE_ARGS[@]}" security/selinux/ drivers/kernelsu/
 make "${MAKE_ARGS[@]}"
 
 IMAGE="$OUT_DIR/arch/arm64/boot/Image.gz-dtb"
