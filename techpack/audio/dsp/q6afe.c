@@ -597,9 +597,16 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 	    data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3) {
 		uint32_t *payload = data->payload;
 		uint32_t param_id;
+		/* status word followed by the parameter header */
+		uint32_t hdr_size = sizeof(uint32_t) +
+			((data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3) ?
+			 sizeof(struct param_hdr_v3) :
+			 sizeof(struct param_hdr_v1));
 
 #ifdef CONFIG_MSM_CSPL
-		if (crus_afe_callback(data->payload, data->payload_size) == 0)
+		/* crus_afe_callback() reads the module ID from the second word */
+		if (payload && data->payload_size >= 2 * sizeof(uint32_t) &&
+		    crus_afe_callback(data->payload, data->payload_size) == 0)
 			return 0;
 #endif
 
@@ -614,6 +621,30 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 					   data->payload_size))
 			return 0;
 
+#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
+		/* A TFA status reply carries only the status word */
+		if (atomic_read(&this_afe.tfa_state) == 1 &&
+			data->payload_size == sizeof(uint32_t)) {
+
+			atomic_set(&this_afe.status, payload[0]);
+			if (payload[0])
+				atomic_set(&this_afe.state, -1);
+			else
+				atomic_set(&this_afe.state, 0);
+
+			atomic_set(&this_afe.tfa_state, 0);
+			wake_up(&this_afe.wait[data->token]);
+
+			return 0;
+		}
+#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
+
+		if (data->payload_size < hdr_size) {
+			pr_err("%s: Error: payload size %d too small for opcode 0x%x\n",
+				__func__, data->payload_size, data->opcode);
+			return -EINVAL;
+		}
+
 		param_id = (data->opcode == AFE_PORT_CMDRSP_GET_PARAM_V3) ?
 					payload[3] :
 					payload[2];
@@ -622,24 +653,6 @@ static int32_t afe_callback(struct apr_client_data *data, void *priv)
 			av_dev_drift_afe_cb_handler(data->opcode, data->payload,
 						    data->payload_size);
 		} else {
-
-#ifdef CONFIG_SND_SOC_TFA9874_FOR_DAVI
-			if (atomic_read(&this_afe.tfa_state) == 1 &&
-				data->payload_size == sizeof(uint32_t)) {
-
-				atomic_set(&this_afe.status, payload[0]);
-				if (payload[0])
-					atomic_set(&this_afe.state, -1);
-				else
-					atomic_set(&this_afe.state, 0);
-
-				atomic_set(&this_afe.tfa_state, 0);
-				wake_up(&this_afe.wait[data->token]);
-
-				return 0;
-			}
-#endif /*CONFIG_SND_SOC_TFA9874_FOR_DAVI*/
-
 			if (sp_make_afe_callback(data->opcode, data->payload,
 						 data->payload_size))
 				return -EINVAL;
