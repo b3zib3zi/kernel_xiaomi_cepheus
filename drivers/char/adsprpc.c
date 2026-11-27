@@ -2829,11 +2829,8 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		}
 	} while (match);
 bail:
-	if (err && match) {
-		mutex_lock(&fl->map_mutex);
+	if (err && match)
 		fastrpc_mmap_add_global(match);
-		mutex_unlock(&fl->map_mutex);
-	}
 	return err;
 }
 
