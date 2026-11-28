@@ -19,3 +19,24 @@
 		status = "disabled";
 	};
 };
+
+/*
+ * DAIs that the audio driver in this tree rejects: it supports no senary
+ * TDM group or AUXPCM interface and no HDMI multi-stream port. No sound
+ * card uses them, and each probe only failed with -EINVAL.
+ */
+&dai_hdmi_ms {
+	status = "disabled";
+};
+
+&tdm_sen_rx {
+	status = "disabled";
+};
+
+&tdm_sen_tx {
+	status = "disabled";
+};
+
+&dai_sen_auxpcm {
+	status = "disabled";
+};
