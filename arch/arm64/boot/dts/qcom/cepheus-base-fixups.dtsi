@@ -1,0 +1,21 @@
+/*
+ * cepheus fixes in the base device tree.
+ *
+ * The kernel zip replaces the kernel and its appended base device trees
+ * only. The cepheus overlay comes from the ROM's dtbo partition, which
+ * differs between ROMs and which the zip leaves alone. An overlay adds
+ * and overrides properties but keeps the ones the base already has, so
+ * fixes placed here work with any ROM's dtbo.
+ */
+
+/*
+ * Only andromeda (Mi Mix 3 5G) has a TAS2557 amplifier. On cepheus the
+ * sm8150 machine driver uses the CS35L41, and nothing answers at 0x4c.
+ * The ROM's overlay adds the rest of the node.
+ */
+&qupv3_se4_i2c {
+	tas2557@4c {
+		reg = <0x4c>;
+		status = "disabled";
+	};
+};
