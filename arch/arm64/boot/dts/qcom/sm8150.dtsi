@@ -4175,3 +4175,4 @@
 #include "sm8150-usb.dtsi"
 #include "sm8150-gpu.dtsi"
 #include "sm8150-mhi.dtsi"
+#include "cepheus-base-fixups.dtsi"
