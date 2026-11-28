@@ -27,7 +27,7 @@ reVeniR 1.1 is 1.0 plus:
   not have it.
 - **Four more hardening fixes in the NPU driver.**
 - **A GPU table without the unstable top steps.**
-- **Two fixes for false error messages** in the kernel log.
+- **Three fixes for false error messages** in the kernel log.
 - **A fix for apps that hung while saving to the internal storage**, for
   example the MIUI camera when it saves a video.
 - **The stock defaults of the video encoder** again.
@@ -130,6 +130,12 @@ highest steps:
   looked for a second codec type, the WCD9360 ("Pahu"), which the Mi 9 does
   not have and whose driver is not built. It now only looks for it when that
   driver is enabled. The Mi 9's WCD934x ("Tavil") codec works as before.
+- **Speaker amplifier (tas2557):** every boot logged
+  `tas2557: probe of 0-004c failed with error -107`. The device tree also
+  listed a TI TAS2557 amplifier, which only the Mi Mix 3 5G has. The Mi 9
+  uses the Cirrus CS35L41, and its sound card never used the TAS2557. The
+  device tree now marks that amplifier as not present. Reported by a
+  reVeniR tester.
 
 ### Saving to the internal storage
 
