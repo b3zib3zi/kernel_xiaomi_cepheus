@@ -139,6 +139,8 @@ And public attribution of xiaomi platforms(like F1 and so and)
 &qupv3_se4_i2c {
 	status = "ok";
 	tas2557@4c {
+		/* Only fitted on andromeda; cepheus uses the cs35l41 below. */
+		status = "disabled";
 		compatible = "ti,tas2557";
 		reg = <0x4c>;
 		//ti,cdc-reset-gpio = <&tlmm 59 0>;
