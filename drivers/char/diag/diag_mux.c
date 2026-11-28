@@ -125,6 +125,12 @@ int diag_pcie_register_ops(int proc, int ctx, struct diag_mux_ops *ops)
 		return 0;
 
 	pcie_logger.ops[proc] = ops;
+	/*
+	 * PCIe channels need MHI device support. Without it the registration
+	 * can only fail, and USB stays the transport.
+	 */
+	if (!IS_ENABLED(CONFIG_MSM_MHI_DEV))
+		return 0;
 	DIAG_LOG(DIAG_DEBUG_MUX,
 	"diag: registering pcie for proc: %d\n", proc);
 	err = diag_pcie_register(proc, ctx, ops);
